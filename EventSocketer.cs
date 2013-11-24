@@ -215,7 +215,7 @@ namespace AsyncSocketer
             a.MessageIndex = (e.UserToken as EventToken).MessageID;
             fireEvent(evtSend, a);
             mbrAutoSend = true;
-            ClientSocket.Shutdown(SocketShutdown.Send);
+            //ClientSocket.Shutdown(SocketShutdown.Send);
             Send();
         }
         protected virtual void OnReceived(SocketAsyncEventArgs e)
@@ -246,7 +246,7 @@ namespace AsyncSocketer
         }
         protected virtual void Receive()
         {
-            if (ClientSocket.Connected)
+            if (ClientSocket != null && ClientSocket.Connected)
             {
                 SocketAsyncEventArgs e = GetReceiveAsyncEvents();
                 GetRecevieBuffer().SetBuffer(e, Config.BufferSize);
@@ -260,7 +260,7 @@ namespace AsyncSocketer
             (e.UserToken as EventToken).MessageID = m.MessageIndex;
             GetSendBuffer().SetBuffer(e, m.Buffer.Length);
             Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, m.Buffer.Length);
-            if (!ClientSocket.SendAsync(e))
+            if (ClientSocket != null && !ClientSocket.SendAsync(e))
             {
                 OnSended(e);
             }

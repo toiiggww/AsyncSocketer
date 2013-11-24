@@ -9,22 +9,24 @@ namespace AsyncSocketer
     public class SocketConfigure
     {
         private string mbrHost;
+        private string mbrHostName;
         public string Host
         {
             get { return mbrHost; }
             set
             {
+                if (mbrHost == null)
+                {
+                    mbrHost = "";
+                }
                 if (value.ToLower().Trim() != mbrHost.ToLower().Trim() && value.Trim() != string.Empty)
                 {
-                    lock (mbrIP)
+                    if (resloveHost(value.Trim()))
                     {
-                        if (resloveHost(value.Trim()))
+                        mbrHost = value.Trim();
+                        if (mbrPort > 0 && mbrPort < 65535)
                         {
-                            mbrHost = value.Trim();
-                            if (mbrPort > 0 && mbrPort < 65535)
-                            {
-                                mbrRemote = new IPEndPoint(mbrIP, mbrPort);
-                            }
+                            mbrRemote = new IPEndPoint(mbrIP, mbrPort);
                         }
                     }
                 }
@@ -42,10 +44,7 @@ namespace AsyncSocketer
             try
             {
                 f = IPAddress.TryParse(value, out mbrIP);
-            }
-            catch // (Exception e)
-            {
-                try
+                if (!f)
                 {
                     foreach (IPAddress ip in Dns.GetHostEntry(value).AddressList)
                     {
@@ -57,10 +56,14 @@ namespace AsyncSocketer
                         }
                     }
                 }
-                catch
+                if (mbrPort!=int.MinValue)
                 {
-                    throw new ArgumentNullException("Can't find host of " + value);
+                    mbrRemote = new IPEndPoint(mbrIP, mbrPort);
                 }
+            }
+            catch // (Exception e)
+            {
+                throw new ArgumentNullException("Can't find host of " + value);
             }
             return f;
         }
@@ -74,26 +77,13 @@ namespace AsyncSocketer
                 {
                     throw new ArgumentOutOfRangeException();
                 }
-                lock (mbrRemote)
+                mbrPort = value;
+                if (mbrIP != null || resloveHost(mbrHost))
                 {
-                    mbrPort = value;
-                    if (mbrIP != null || resloveHost(mbrHost))
-                    {
-                        mbrRemote = new IPEndPoint(mbrIP, value);
-                    }
+                    mbrRemote = new IPEndPoint(mbrIP, value);
                 }
             }
         }
-        public int BufferSize { get; set; }
-        public int BufferShard { get; set; }
-        public int MaxBufferCount { get; set; }
-        public int MaxDataConnection { get; set; }
-        public int TotalClientConnection { get; set; }
-        public int ReceiveMessagePerConnection { get; set; }
-        public int SendMessagePerConnection { get; set; }
-        public int EventCount { get; set; }
-        public bool OnErrorContinue { get; set; }
-        public System.Net.Sockets.ProtocolType Protocol { get; set; }
         private IPEndPoint mbrRemote;
         public IPEndPoint RemotePoint
         {
@@ -108,6 +98,36 @@ namespace AsyncSocketer
                 }
             }
         }
+        public string HostString
+        {
+            get { return string.Format("{0}:{1}", Host, Port); }
+            set
+            {
+                string[] array = value.Trim().Split(new char[] { ':', ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+                if (array.Length == 2)
+                {
+                    Host = array[0].Trim();
+                    Port = int.Parse(array[1]);
+                    mbrHostName = value.Trim();
+                }
+                else
+                {
+                    throw new ArgumentException("Host String {" + value + "} Error , it will be like [IP:Port|IP Port|IP,Port]");
+                }
+            }
+        }
+        public int ConnectCount { get; set; }
+        public int TimeOut { get; set; }
+        public int BufferSize { get; set; }
+        public int BufferShard { get; set; }
+        public int MaxBufferCount { get; set; }
+        public int MaxDataConnection { get; set; }
+        public int TotalClientConnection { get; set; }
+        public int ReceiveMessagePerConnection { get; set; }
+        public int SendMessagePerConnection { get; set; }
+        public int EventCount { get; set; }
+        public bool OnErrorContinue { get; set; }
+        public System.Net.Sockets.ProtocolType Protocol { get; set; }
         private static SocketConfigure mbrInstance = new SocketConfigure();
         public static SocketConfigure Instance { get { return mbrInstance; } }
         private Encoding mbrEncoding = Encoding.UTF8;
@@ -121,10 +141,7 @@ namespace AsyncSocketer
             Protocol = System.Net.Sockets.ProtocolType.Tcp;
             ConnectCount = 3;
             MaxBufferCount = 1024;
+            mbrPort = int.MinValue;
         }
-
-        public int ConnectCount { get; set; }
-
-        public int TimeOut { get; set; }
     }
 }
