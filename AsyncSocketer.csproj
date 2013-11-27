@@ -54,6 +54,9 @@
     <Compile Include="MixedSocket.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="PartialSocketServer.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SocketConfigure.cs" />
   </ItemGroup>
