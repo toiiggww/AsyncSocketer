@@ -6,14 +6,15 @@ using System.Net.Sockets;
 
 namespace AsyncSocketer
 {
-    public class PartialSocket:EventSocketer
+    public class PartialSocket : EventSocketer
     {
         private EventPool mbrEventConnector, mbrEventSender, mbrEventRecevicer;
         private BufferManager mbrBufferConnector, mbrBufferSender, mbrBufferRecevicer;
-        private PartialSocket()
-        { 
+        protected PartialSocket()
+        {
         }
         public PartialSocket(SocketConfigure sc)
+            : this()
         {
             //mbrBufferRecevicer = new BufferManager(Config.MaxDataConnection);
             //mbrBufferSender = new BufferManager(Config.MaxDataConnection);

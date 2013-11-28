@@ -126,7 +126,11 @@ namespace AsyncSocketer
             evtRecevie = new object();
             evtDisconnected = new object();
             evtError = new object();
-            Config = SocketConfigure.Instance;
+        }
+        protected EventSocketer(SocketConfigure sc)
+            : this()
+        {
+            Config = sc;
             OutMessage = new MessagePool();
             OutMessage.Config = Config;
             IncommeMessage = new MessagePool();
@@ -147,7 +151,7 @@ namespace AsyncSocketer
             {
                 if (d.AddressFamily == AddressFamily.InterNetwork)
                 {
-                    ClientSocket.Bind(new IPEndPoint(d,0));
+                    ClientSocket.Bind(new IPEndPoint(d, 0));
                     break;
                 }
             }
@@ -208,11 +212,11 @@ namespace AsyncSocketer
         protected virtual BufferManager GetSendBuffer() { return null; }
         protected virtual void OnSended(SocketAsyncEventArgs e)
         {
-            SocketEventArgs a = new SocketEventArgs();
-            a.Buffer = new byte[e.BytesTransferred];
-            Buffer.BlockCopy(e.Buffer, e.Offset, a.Buffer, 0, e.BytesTransferred);
-            a.Remoter = e.RemoteEndPoint;
-            a.MessageIndex = (e.UserToken as EventToken).MessageID;
+            SocketEventArgs a = new SocketEventArgs(e);
+            //a.Buffer = new byte[e.BytesTransferred];
+            //Buffer.BlockCopy(e.Buffer, e.Offset, a.Buffer, 0, e.BytesTransferred);
+            //a.Remoter = e.RemoteEndPoint;
+            //a.MessageIndex = (e.UserToken as EventToken).MessageID;
             fireEvent(evtSend, a);
             mbrAutoSend = true;
             //ClientSocket.Shutdown(SocketShutdown.Send);
@@ -220,11 +224,11 @@ namespace AsyncSocketer
         }
         protected virtual void OnReceived(SocketAsyncEventArgs e)
         {
-            SocketEventArgs a = new SocketEventArgs();
-            a.Buffer = new byte[e.BytesTransferred];
-            Buffer.BlockCopy(e.Buffer, e.Offset, a.Buffer, 0, e.BytesTransferred);
-            a.Remoter = e.RemoteEndPoint;
-            a.MessageIndex = (e.UserToken as EventToken).MessageID;
+            SocketEventArgs a = new SocketEventArgs(e);
+            //a.Buffer = new byte[e.BytesTransferred];
+            //Buffer.BlockCopy(e.Buffer, e.Offset, a.Buffer, 0, e.BytesTransferred);
+            //a.Remoter = e.RemoteEndPoint;
+            //a.MessageIndex = (e.UserToken as EventToken).MessageID;
             IncommeMessage.PushMessage(a.Buffer, true);
             fireEvent(evtRecevie, a);
             //ClientSocket.Shutdown(SocketShutdown.Receive);
@@ -232,8 +236,8 @@ namespace AsyncSocketer
         }
         protected virtual void OnConnected(SocketAsyncEventArgs e)
         {
-            SocketEventArgs a = new SocketEventArgs();
-            a.Remoter = ClientSocket.RemoteEndPoint;
+            SocketEventArgs a = new SocketEventArgs(e);
+            //a.Remoter = ClientSocket.RemoteEndPoint;
             fireEvent(evtConnected, a);
             Receive();
         }
@@ -250,7 +254,10 @@ namespace AsyncSocketer
             {
                 SocketAsyncEventArgs e = GetReceiveAsyncEvents();
                 GetRecevieBuffer().SetBuffer(e, Config.BufferSize);
-                ClientSocket.ReceiveAsync(e);
+                if (!ClientSocket.ReceiveAsync(e))
+                {
+                    OnReceived(e);
+                }
             }
         }
         protected virtual void Send()
@@ -270,20 +277,34 @@ namespace AsyncSocketer
     public delegate void SockerErrorHandler(object sender, SocketErrorArgs e);
     public class SocketEventArgs : EventArgs
     {
+        public SocketEventArgs(SocketAsyncEventArgs e)
+        {
+            SocketStatus = e.SocketError;
+            EventToken t = (e.UserToken as EventToken);
+            if (t != null)
+            {
+                SessionID = t.SessionID;
+                MessageIndex = t.MessageID;
+                Buffer = new byte[e.BytesTransferred];
+                System.Buffer.BlockCopy(e.Buffer, e.Offset, Buffer, 0, e.BytesTransferred);
+                Remoter = e.RemoteEndPoint;
+            }
+        }
         public SocketError SocketStatus { get; set; }
+        public int SessionID { get; set; }
         public int MessageIndex { get; set; }
         public byte[] Buffer { get; set; }
         public EndPoint Remoter { get; set; }
         public override string ToString()
         {
-            string r = string.Format("Socket:[{0}][{1}][{2}]",Remoter,MessageIndex,SocketStatus);
+            string r = string.Format("Socket:[{0}][{1}][{2}][{3}]", SessionID, Remoter, MessageIndex, SocketStatus);
             string b = "", s = "";
             if (Buffer != null)
             {
                 for (int i = 0; i < Buffer.Length; i++)
                 {
                     s = string.Format("{0}  {1}", s, (char)Buffer[i]);
-                    b = string.Format("{0} {1:X}", b, Buffer[i]);
+                    b = string.Format("{0} {1:X2}", b, Buffer[i]);
                 }
                 b = string.Format("{0}{1}{2}", b, Environment.NewLine, s);
             }

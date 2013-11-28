@@ -48,7 +48,7 @@
     </Compile>
     <Compile Include="BufferManager.cs" />
     <Compile Include="EventPool.cs" />
-    <Compile Include="EventsToken.cs" />
+    <Compile Include="EventToken.cs" />
     <Compile Include="MessageFragment.cs" />
     <Compile Include="MessagePool.cs" />
     <Compile Include="MixedSocket.cs">

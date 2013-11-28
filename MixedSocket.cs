@@ -54,9 +54,9 @@ namespace AsyncSocketer
                             return;
                         }
                     }
-                    SocketEventArgs a = new SocketEventArgs();
-                    a.SocketStatus = x.SocketError;
-                    a.Remoter = x.RemoteEndPoint;
+                    SocketEventArgs a = new SocketEventArgs(x);
+                    //a.SocketStatus = x.SocketError;
+                    //a.Remoter = x.RemoteEndPoint;
                     //a.Buffer = new byte[x.BytesTransferred];
                     //Buffer.BlockCopy(x.Buffer, 0, a.Buffer, 0, x.BytesTransferred);
                     EventToken t = x.UserToken as EventToken;
@@ -83,7 +83,7 @@ namespace AsyncSocketer
                         }
                         else
                         {
-                            a.MessageIndex = (x.UserToken as EventToken).MessageID;
+                            //a.MessageIndex = (x.UserToken as EventToken).MessageID;
                             fireEvent(evtSend, a);
                         }
                     }
