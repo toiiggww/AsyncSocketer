@@ -254,9 +254,68 @@ namespace AsyncSocketer
             {
                 SocketAsyncEventArgs e = GetReceiveAsyncEvents();
                 GetRecevieBuffer().SetBuffer(e, Config.BufferSize);
-                if (!ClientSocket.ReceiveAsync(e))
+                switch (Config.Protocol)
                 {
-                    OnReceived(e);
+                    case ProtocolType.Ggp:
+                        break;
+                    case ProtocolType.IP:
+                        break;
+                    //case ProtocolType.IPv6HopByHopOptions:
+                    //    break;
+                    //case ProtocolType.Unspecified:
+                    //    break;
+                    case ProtocolType.IPSecAuthenticationHeader:
+                        break;
+                    case ProtocolType.IPSecEncapsulatingSecurityPayload:
+                        break;
+                    case ProtocolType.IPv4:
+                        break;
+                    case ProtocolType.IPv6:
+                        break;
+                    case ProtocolType.IPv6DestinationOptions:
+                        break;
+                    case ProtocolType.IPv6FragmentHeader:
+                        break;
+                    case ProtocolType.IPv6NoNextHeader:
+                        break;
+                    case ProtocolType.IPv6RoutingHeader:
+                        break;
+                    case ProtocolType.Icmp:
+                        break;
+                    case ProtocolType.IcmpV6:
+                        break;
+                    case ProtocolType.Idp:
+                        break;
+                    case ProtocolType.Igmp:
+                        break;
+                    case ProtocolType.Ipx:
+                        break;
+                    case ProtocolType.ND:
+                        break;
+                    case ProtocolType.Pup:
+                        break;
+                    case ProtocolType.Raw:
+                        break;
+                    case ProtocolType.Spx:
+                        break;
+                    case ProtocolType.SpxII:
+                        break;
+                    case ProtocolType.Tcp:
+                        if (!ClientSocket.ReceiveAsync(e))
+                        {
+                            OnReceived(e);
+                        }
+                        break;
+                    case ProtocolType.Udp:
+                        if (!ClientSocket.ReceiveFromAsync(e))
+                        {
+                            OnReceived(e);
+                        }
+                        break;
+                    case ProtocolType.Unknown:
+                        break;
+                    default:
+                        break;
                 }
             }
         }
@@ -267,9 +326,68 @@ namespace AsyncSocketer
             (e.UserToken as EventToken).MessageID = m.MessageIndex;
             GetSendBuffer().SetBuffer(e, m.Buffer.Length);
             Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, m.Buffer.Length);
-            if (ClientSocket != null && !ClientSocket.SendAsync(e))
+            switch (Config.Protocol)
             {
-                OnSended(e);
+                case ProtocolType.Ggp:
+                    break;
+                case ProtocolType.IP:
+                    break;
+                //case ProtocolType.IPv6HopByHopOptions:
+                //    break;
+                //case ProtocolType.Unspecified:
+                //    break;
+                case ProtocolType.IPSecAuthenticationHeader:
+                    break;
+                case ProtocolType.IPSecEncapsulatingSecurityPayload:
+                    break;
+                case ProtocolType.IPv4:
+                    break;
+                case ProtocolType.IPv6:
+                    break;
+                case ProtocolType.IPv6DestinationOptions:
+                    break;
+                case ProtocolType.IPv6FragmentHeader:
+                    break;
+                case ProtocolType.IPv6NoNextHeader:
+                    break;
+                case ProtocolType.IPv6RoutingHeader:
+                    break;
+                case ProtocolType.Icmp:
+                    break;
+                case ProtocolType.IcmpV6:
+                    break;
+                case ProtocolType.Idp:
+                    break;
+                case ProtocolType.Igmp:
+                    break;
+                case ProtocolType.Ipx:
+                    break;
+                case ProtocolType.ND:
+                    break;
+                case ProtocolType.Pup:
+                    break;
+                case ProtocolType.Raw:
+                    break;
+                case ProtocolType.Spx:
+                    break;
+                case ProtocolType.SpxII:
+                    break;
+                case ProtocolType.Tcp:
+                    if (!ClientSocket.SendAsync(e))
+                    {
+                        OnSended(e);
+                    }
+                    break;
+                case ProtocolType.Udp:
+                    if (!ClientSocket.SendToAsync(e))
+                    {
+                        OnSended(e);
+                    }
+                    break;
+                case ProtocolType.Unknown:
+                    break;
+                default:
+                    break;
             }
         }
     }

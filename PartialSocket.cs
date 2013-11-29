@@ -14,12 +14,12 @@ namespace AsyncSocketer
         {
         }
         public PartialSocket(SocketConfigure sc)
-            : this()
+            : base(sc)
         {
             //mbrBufferRecevicer = new BufferManager(Config.MaxDataConnection);
             //mbrBufferSender = new BufferManager(Config.MaxDataConnection);
             //mbrBufferConnector = new BufferManager(3);
-            Config = sc;
+            //Config = sc;
             //mbrEventConnector = new EventPool(Config.MaxDataConnection);
             //mbrEventRecevicer = new EventPool(Config.MaxDataConnection);
             //mbrEventSender = new EventPool(3);
