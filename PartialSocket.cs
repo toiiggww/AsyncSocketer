@@ -52,7 +52,7 @@ namespace AsyncSocketer
                             mbrEventConnector.Push(x);
                         };
                     GetConnectBuffer().SetBuffer(e);
-                    GetConnectBuffer().SetBuffer(e, 6);
+                    GetConnectBuffer().SetBuffer(e, 4);
                     mbrEventConnector.Push(e);
                 }
             }
@@ -95,7 +95,7 @@ namespace AsyncSocketer
                         //ReceviewLocker.Reset();
                     };
                     GetRecevieBuffer().SetBuffer(e);
-                    GetRecevieBuffer().SetBuffer(e, 6);
+                    GetRecevieBuffer().SetBuffer(e, 5);
                     mbrEventRecevicer.Push(e);
                 }
             }
@@ -135,7 +135,7 @@ namespace AsyncSocketer
                         }
                     };
                     GetSendBuffer().SetBuffer(e);
-                    GetSendBuffer().SetBuffer(e, 6);
+                    GetSendBuffer().SetBuffer(e, 3);
                     mbrEventSender.Push(e);
                 }
             }

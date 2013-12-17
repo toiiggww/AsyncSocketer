@@ -11,7 +11,7 @@ namespace AsyncSocketer
     {
         protected object evtBeginAccept, evtAccepted;
         public event SocketEventHandler BeginAccept { add { base.Events.AddHandler(evtBeginAccept, value); } remove { base.Events.RemoveHandler(evtBeginAccept, value); } }
-        public event SocketEventHandler Accepted { add { base.Events.AddHandler(evtAccepted, value); } remove { base.Events.RemoveHandler(evtAccepted, value); } }
+        public event ServerSocketEventHandler Accepted { add { base.Events.AddHandler(evtAccepted, value); } remove { base.Events.RemoveHandler(evtAccepted, value); } }
         protected virtual void OnBeginAccept(SocketAsyncEventArgs e)
         {
             SocketEventArgs a = new SocketEventArgs(e);
@@ -19,7 +19,7 @@ namespace AsyncSocketer
         }
         protected virtual void OnAccepted(SocketAsyncEventArgs e)
         {
-            SocketEventArgs a = new SocketEventArgs(e);
+            ServerSocketEventArgs a = new ServerSocketEventArgs(e);
             fireEvent(evtAccepted, a);
         }
         private EventPool mbrAcceptEventer;
@@ -82,6 +82,10 @@ namespace AsyncSocketer
             evtBeginAccept = new object();
             evtAccepted = new object();
         }
+        public PartialSocketServer(SocketConfigure sc)
+            : base(sc)
+        {
+        }
         public bool Start()
         {
             try
@@ -110,6 +114,21 @@ namespace AsyncSocketer
                 OnAccepted(e);
             }
             return e;
+        }
+        protected override void fireEvent(object evt, object e)
+        {
+            if (evt == evtAccepted)
+            {
+                object o = base.Events[evtAccepted];
+                if (o != null)
+                {
+                    (o as ServerSocketEventHandler)(this, (e as ServerSocketEventArgs));
+                }
+            }
+            else
+            {
+                base.fireEvent(evt, e);
+            }
         }
     }
 }

@@ -30,7 +30,7 @@ namespace AsyncSocketer
         public event SocketEventHandler Recevied { add { base.Events.AddHandler(evtRecevie, value); } remove { base.Events.RemoveHandler(evtRecevie, value); } }
         public event SocketEventHandler Disconnected { add { base.Events.AddHandler(evtDisconnected, value); } remove { base.Events.RemoveHandler(evtDisconnected, value); } }
         public event SockerErrorHandler Error { add { base.Events.AddHandler(evtError, value); } remove { base.Events.RemoveHandler(evtError, value); } }
-        protected void fireEvent(object evt, object e)
+        protected virtual void fireEvent(object evt, object e)
         {
             if (evt != null)
             {
@@ -143,7 +143,7 @@ namespace AsyncSocketer
             Config.RemotePoint = new System.Net.IPEndPoint(iPAddress, p);
             StartClient();
         }
-        public void StartClient(bool startReceive)
+        public void StartClient(bool witeForSend)
         {
             fireEvent(evtConnecting, null);
             ClientSocket = new Socket(Config.RemotePoint.AddressFamily, SocketType.Stream, Config.Protocol);
@@ -157,7 +157,14 @@ namespace AsyncSocketer
             }
             //ClientSocket.Listen(Config.TimeOut);
             SocketAsyncEventArgs e = GetConnectAsyncEvents();
-            (e.UserToken as EventToken).ForceReceive = startReceive;
+            if (witeForSend)
+            {
+                MessageFragment m = OutMessage.GetMessage();
+                (e.UserToken as EventToken).MessageID = m.MessageIndex;
+                GetSendBuffer().SetBuffer(e, m.Buffer.Length);
+                Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, m.Buffer.Length);
+            }
+            //(e.UserToken as EventToken).ForceReceive = startReceive;
             if (!ClientSocket.ConnectAsync(e))
             {
                 OnConnected(e);
@@ -392,6 +399,7 @@ namespace AsyncSocketer
         }
     }
     public delegate void SocketEventHandler(object sender, SocketEventArgs e);
+    public delegate void ServerSocketEventHandler(object sender, ServerSocketEventArgs e);
     public delegate void SockerErrorHandler(object sender, SocketErrorArgs e);
     public class SocketEventArgs : EventArgs
     {
@@ -429,6 +437,11 @@ namespace AsyncSocketer
             r = string.Format("{0}{1}{2}", r, Environment.NewLine, b);
             return r;
         }
+    }
+    public class ServerSocketEventArgs : SocketEventArgs
+    {
+        public ServerSocketEventArgs(SocketAsyncEventArgs e) : base(e) { AcceptSocket = e.AcceptSocket; }
+        public Socket AcceptSocket { get; set; }
     }
     public class SocketErrorArgs : EventArgs
     {
