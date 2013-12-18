@@ -40,11 +40,9 @@ namespace AsyncSocketer
                 {
                     if (x.SocketError != SocketError.Success)
                     {
-                        SocketErrorArgs err = new SocketErrorArgs();
+                        SocketErrorArgs err = new SocketErrorArgs(x);
                         lock (err)
                         {
-                            err.SocketError = x.SocketError;
-                            err.Operation = x.LastOperation;
                             fireEvent(evtError, err);
                         }
                         if (!Config.OnErrorContinue)

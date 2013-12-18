@@ -117,7 +117,7 @@ namespace AsyncSocketer
         public bool Connedted { get { return ClientSocket.Connected; } }
         public virtual int PreparSendMessage(byte[] msg) { return OutMessage.PushMessage(msg); }
         public virtual int PreparSendMessage(string msg) { return OutMessage.PushMessage(msg); }
-        private bool mbrAutoSend;
+        private bool mbrJuestSended;
         protected EventSocketer()
         {
             evtConnecting = new object();
@@ -135,7 +135,7 @@ namespace AsyncSocketer
             OutMessage.Config = Config;
             IncommeMessage = new MessagePool();
             IncommeMessage.Config = Config;
-            mbrAutoSend = false;
+            mbrJuestSended = false;
             ReceviewLocker = new ManualResetEvent(true);
         }
         public void StartClient(System.Net.IPAddress iPAddress, int p)
@@ -174,7 +174,7 @@ namespace AsyncSocketer
         public virtual int Send(byte[] msg)
         {
             int i = PreparSendMessage(msg);
-            if (!mbrAutoSend)
+            if (!mbrJuestSended)
             {
                 Send();
             }
@@ -219,27 +219,42 @@ namespace AsyncSocketer
         protected virtual BufferManager GetSendBuffer() { return null; }
         protected virtual void OnSended(SocketAsyncEventArgs e)
         {
+            if (e.SocketError != SocketError.Success)
+            {
+                SocketErrorArgs r = new SocketErrorArgs(e);
+                fireEvent(evtError, r);
+                if (!Config.OnErrorContinue)
+                {
+                    return;
+                }
+            }
             SocketEventArgs a = new SocketEventArgs(e);
             //a.Buffer = new byte[e.BytesTransferred];
             //Buffer.BlockCopy(e.Buffer, e.Offset, a.Buffer, 0, e.BytesTransferred);
             //a.Remoter = e.RemoteEndPoint;
             //a.MessageIndex = (e.UserToken as EventToken).MessageID;
             fireEvent(evtSend, a);
-            mbrAutoSend = true;
+            mbrJuestSended = true;
             //ClientSocket.Shutdown(SocketShutdown.Send);
             Send();
         }
         protected virtual void OnReceived(SocketAsyncEventArgs e)
         {
-            SocketEventArgs a = new SocketEventArgs(e);
-            //a.Buffer = new byte[e.BytesTransferred];
-            //Buffer.BlockCopy(e.Buffer, e.Offset, a.Buffer, 0, e.BytesTransferred);
-            //a.Remoter = e.RemoteEndPoint;
-            //a.MessageIndex = (e.UserToken as EventToken).MessageID;
-            IncommeMessage.PushMessage(a.Buffer, true);
-            fireEvent(evtRecevie, a);
+            if (e.BytesTransferred > 0)
+            {
+                SocketEventArgs a = new SocketEventArgs(e);
+                //a.Buffer = new byte[e.BytesTransferred];
+                //Buffer.BlockCopy(e.Buffer, e.Offset, a.Buffer, 0, e.BytesTransferred);
+                //a.Remoter = e.RemoteEndPoint;
+                //a.MessageIndex = (e.UserToken as EventToken).MessageID;
+                IncommeMessage.PushMessage(a.Buffer, true);
+                fireEvent(evtRecevie, a);
+            }
             //ClientSocket.Shutdown(SocketShutdown.Receive);
-            Receive();
+            if (ClientSocket.Connected)
+            {
+                Receive();
+            }
         }
         protected virtual void OnConnected(SocketAsyncEventArgs e)
         {
@@ -250,9 +265,7 @@ namespace AsyncSocketer
         }
         protected virtual void OnError(SocketAsyncEventArgs x)
         {
-            SocketErrorArgs r = new SocketErrorArgs();
-            r.Operation = x.LastOperation;
-            r.SocketError = x.SocketError;
+            SocketErrorArgs r = new SocketErrorArgs(x);
             fireEvent(evtError, r);
         }
         protected virtual void Receive()
@@ -452,6 +465,12 @@ namespace AsyncSocketer
         public override string ToString()
         {
             return string.Format("Error:[{0}]{1}On {2} with {3} as : {4}", Message, Environment.NewLine, Operation, SocketError, Exception);
+        }
+        public SocketErrorArgs() { }
+        public SocketErrorArgs(SocketAsyncEventArgs e)
+        {
+            SocketError = e.SocketError;
+            Operation = e.LastOperation;
         }
     }
 }

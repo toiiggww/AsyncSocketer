@@ -55,7 +55,7 @@ namespace AsyncSocketer
                     GetAcceptBuffer().SetBuffer(e, 6);
                     if (!mbrAcceptEventer.Push(e))
                     {
-                        SocketErrorArgs a = new SocketErrorArgs();
+                        SocketErrorArgs a = new SocketErrorArgs(e);
                         a.Exception = null;
                         a.Message = "Initialize Accept pooler failed.";
                         a.Operation = SocketAsyncOperation.None;
