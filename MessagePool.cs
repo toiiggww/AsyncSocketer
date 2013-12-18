@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,10 +20,30 @@ namespace AsyncSocketer
             Messages = new Queue<MessageFragment>();
             MessageLocker = new AutoResetEvent(false);
             MessageIndex = int.MinValue + 1;
+            evtMessageArrived = new object();
         }
         #region Messager
         private Queue<MessageFragment> Messages { get; set; }
         private AutoResetEvent MessageLocker { get; set; }
+        private object evtMessageArrived;
+        private static EventHandlerList mbrEvents = new EventHandlerList();
+        public event EventHandler MessageArrived
+        {
+            add { mbrEvents.AddHandler(evtMessageArrived, value); }
+            remove { mbrEvents.RemoveHandler(evtMessageArrived, value); }
+        }
+        protected void OnMessageArrived()
+        {
+            object o = mbrEvents[evtMessageArrived];
+            if (o != null)
+            {
+                (o as EventHandler)(this,new EventArgs());
+            }
+            if (Messages.Count == 1)
+            {
+                MessageLocker.Set();
+            }
+        }
         private int MessageIndex;
         private bool mbrForceClose;
         public SocketConfigure Config { get; set; }
@@ -47,10 +68,8 @@ namespace AsyncSocketer
             m.Buffer = new byte[msg.Length];
             Buffer.BlockCopy(msg, 0, m.Buffer, 0, msg.Length);
             Messages.Enqueue(m);
-            if (Messages.Count == 1)
-            {
-                MessageLocker.Set();
-            }
+            OnMessageArrived();
+
             return m.MessageIndex;
         }
         public MessageFragment GetMessage()
@@ -62,7 +81,7 @@ namespace AsyncSocketer
                 {
                     return null;
                 }
-                //MessageLocker.Reset();
+                MessageLocker.Reset();
             }
             return Messages.Dequeue();
         }

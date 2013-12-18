@@ -133,6 +133,7 @@ namespace AsyncSocketer
             Config = sc;
             OutMessage = new MessagePool();
             OutMessage.Config = Config;
+            OutMessage.MessageArrived += (o, e) => { if (ClientSocket!=null && ClientSocket.Connected) { Send(); } };
             IncommeMessage = new MessagePool();
             IncommeMessage.Config = Config;
             mbrJuestSended = false;
