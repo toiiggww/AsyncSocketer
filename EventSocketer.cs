@@ -9,6 +9,9 @@ using System.Threading;
 
 namespace AsyncSocketer
 {
+    /// <summary>
+    /// This is driverd from http://www.codeproject.com/Articles/83102/C-SocketAsyncEventArgs-High-Performance-Socket-Cod
+    /// </summary>
     public abstract class EventSocketer : Component
     {
         #region EventSystem
@@ -110,7 +113,7 @@ namespace AsyncSocketer
         //    }
         //}
         protected MessagePool OutMessage { get; private set; }
-        protected ManualResetEvent ReceviewLocker { get; private set; }
+        protected ManualResetEvent SenderLocker { get; private set; }
         protected MessagePool IncommeMessage { get; private set; }
         public SocketConfigure Config { get; set; }
         protected virtual Socket ClientSocket { get; set; }
@@ -133,11 +136,11 @@ namespace AsyncSocketer
             Config = sc;
             OutMessage = new MessagePool();
             OutMessage.Config = Config;
-            OutMessage.MessageArrived += (o, e) => { if (ClientSocket!=null && ClientSocket.Connected) { Send(); } };
+            //OutMessage.MessageArrived += (o, e) => { if (ClientSocket!=null && ClientSocket.Connected) { Send(); } };
             IncommeMessage = new MessagePool();
             IncommeMessage.Config = Config;
             mbrJuestSended = false;
-            ReceviewLocker = new ManualResetEvent(true);
+            SenderLocker = new ManualResetEvent(true);
         }
         public void StartClient(System.Net.IPAddress iPAddress, int p)
         {
@@ -439,16 +442,39 @@ namespace AsyncSocketer
         {
             string r = string.Format("Socket:[{0}][{1}][{2}][{3}]", SessionID, Remoter, MessageIndex, SocketStatus);
             string b = "", s = "";
-            if (Buffer != null)
+            r = string.Format("{0}{1}Index \\ Offset  ", r, Environment.NewLine);
+            int i = 0, j = 0;
+            for (; i < 16; i++)
             {
-                for (int i = 0; i < Buffer.Length; i++)
-                {
-                    s = string.Format("{0}  {1}", s, (char)Buffer[i]);
-                    b = string.Format("{0} {1:X2}", b, Buffer[i]);
-                }
-                b = string.Format("{0}{1}{2}", b, Environment.NewLine, s);
+                r = string.Format("{0} _{1:X}", r, i);
             }
-            r = string.Format("{0}{1}{2}", r, Environment.NewLine, b);
+            r = r + " [_____string_____]" + Environment.NewLine;
+            i = Buffer.Length / 16;
+            for (int k = 0; k < i; k++)
+            {
+                for (j = k * 16; j < (((k + 1) * 16 > Buffer.Length) ? Buffer.Length - 1 : ((k + 1) * 16)); j++)
+                {
+                    b = string.Format("{0} {1:X2}", b, Buffer[j]);
+                    s = string.Format("{0}{1}", s, (Buffer[j] == 0 ? '.' : ((Buffer[j] == 0x0a || Buffer[j] == 0x0d || Buffer[j] == 0x08 || Buffer[j] == 0x7f) ? '_' : (char)Buffer[j])));
+                }
+                r = string.Format("{0}{1:X11}_ |  {2}  {3:50}{4}", r, k, b, s, Environment.NewLine);
+                b = "";
+                s = "";
+                if (k == i - 1)
+                {
+                    for (j = (k + 1) * 16; j < Buffer.Length; j++)
+                    {
+                        b = string.Format("{0} {1:X2}", b, Buffer[j]);
+                        s = string.Format("{0}{1}", s, (Buffer[j] == 0 ? '.' : ((Buffer[j] == 0x0a || Buffer[j] == 0x0d || Buffer[j] == 0x08 || Buffer[j] == 0x7f) ? '_' : (char)Buffer[j])));
+                    }
+                    for (j = 0; j < (i + 1) * 16 - Buffer.Length; j++)
+                    {
+                        b = string.Format("{0}   ", b);//, Buffer[j]);
+                        //s = string.Format("{0}   ", s);//, (Buffer[j] == 0 ? '.' : ((Buffer[j] == 0x0a || Buffer[j] == 0x0d || Buffer[j] == 0x08 || Buffer[j] == 0x7f) ? '_' : (char)Buffer[j])));
+                    }
+                    r = string.Format("{0}{1:X11}_ |  {2}  {3:50}{4}", r, k, b, s, Environment.NewLine);
+                }
+            }
             return r;
         }
     }

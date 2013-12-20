@@ -20,25 +20,25 @@ namespace AsyncSocketer
             Messages = new Queue<MessageFragment>();
             MessageLocker = new AutoResetEvent(false);
             MessageIndex = int.MinValue + 1;
-            evtMessageArrived = new object();
+            //evtMessageArrived = new object();
         }
         #region Messager
         private Queue<MessageFragment> Messages { get; set; }
         private AutoResetEvent MessageLocker { get; set; }
-        private object evtMessageArrived;
-        private static EventHandlerList mbrEvents = new EventHandlerList();
-        public event EventHandler MessageArrived
-        {
-            add { mbrEvents.AddHandler(evtMessageArrived, value); }
-            remove { mbrEvents.RemoveHandler(evtMessageArrived, value); }
-        }
+        //private object evtMessageArrived;
+        //private static EventHandlerList mbrEvents = new EventHandlerList();
+        //public event EventHandler MessageArrived
+        //{
+        //    add { mbrEvents.AddHandler(evtMessageArrived, value); }
+        //    remove { mbrEvents.RemoveHandler(evtMessageArrived, value); }
+        //}
         protected void OnMessageArrived()
         {
-            object o = mbrEvents[evtMessageArrived];
-            if (o != null)
-            {
-                (o as EventHandler)(this,new EventArgs());
-            }
+            //object o = mbrEvents[evtMessageArrived];
+            //if (o != null)
+            //{
+            //    (o as EventHandler)(this,new EventArgs());
+            //}
             if (Messages.Count == 1)
             {
                 MessageLocker.Set();
@@ -57,7 +57,7 @@ namespace AsyncSocketer
         }
         public int PushMessage(byte[] msg, bool check)
         {
-            if (check && Config.MaxBufferCount > 0 && Messages.Count >= Config.MaxBufferCount)
+            if (Config.MaxBufferCount > 0 && Messages.Count >= Config.MaxBufferCount)
             {
                 Messages.Dequeue();
             }

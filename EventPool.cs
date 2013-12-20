@@ -12,13 +12,13 @@ namespace AsyncSocketer
         public Queue<SocketAsyncEventArgs> Pooler { get; private set; }
         private int TokenIndex;
         private bool mbrForceClose;
-        private ManualResetEvent PoolerLocker { get; set; }
+        private AutoResetEvent PoolerLocker { get; set; }
         //public int PoolerSize { get; private set; }
         public EventPool(int size)
         {
             TokenIndex = 0;
             Pooler = new Queue<SocketAsyncEventArgs>(size);
-            PoolerLocker = new ManualResetEvent(false);
+            PoolerLocker = new AutoResetEvent(false);
         }
         public int NextTokenID
         {
@@ -54,17 +54,17 @@ namespace AsyncSocketer
             {
                 return false;
             }
-            lock (Pooler)
+            Pooler.Enqueue(e);
+            if (Pooler.Count == 1)
             {
-                Pooler.Enqueue(e);
                 PoolerLocker.Set();
-                return true;
             }
+            return true;
         }
         internal void ForceClose()
         {
-            PoolerLocker.Set();
             mbrForceClose = true;
+            PoolerLocker.Set();
         }
     }
 }
