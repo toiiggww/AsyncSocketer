@@ -13,83 +13,47 @@ namespace AsyncSocketer
             : this()
         {
             Config = cfg;
+            initPooler();
         }
+
+        private void initPooler()
+        {
+            mbrPooler = new Pooler<MessageFragment>(Config.MaxBufferCount>0 ? Config.MaxBufferCount : defaultMaxSize);
+        }
+        private int defaultMaxSize = 2^24;
         public MessagePool()
         {
             Config = SocketConfigure.Instance;
-            Messages = new Queue<MessageFragment>();
-            MessageLocker = new AutoResetEvent(false);
-            MessageIndex = int.MinValue + 1;
-            //evtMessageArrived = new object();
+            initPooler();
         }
         #region Messager
-        private Queue<MessageFragment> Messages { get; set; }
-        private AutoResetEvent MessageLocker { get; set; }
-        //private object evtMessageArrived;
-        //private static EventHandlerList mbrEvents = new EventHandlerList();
-        //public event EventHandler MessageArrived
-        //{
-        //    add { mbrEvents.AddHandler(evtMessageArrived, value); }
-        //    remove { mbrEvents.RemoveHandler(evtMessageArrived, value); }
-        //}
-        protected void OnMessageArrived()
-        {
-            //object o = mbrEvents[evtMessageArrived];
-            //if (o != null)
-            //{
-            //    (o as EventHandler)(this,new EventArgs());
-            //}
-            if (Messages.Count == 1)
-            {
-                MessageLocker.Set();
-            }
-        }
-        private int MessageIndex;
-        private bool mbrForceClose;
+        private Pooler<MessageFragment> mbrPooler;
         public SocketConfigure Config { get; set; }
         public int PushMessage(string msg)
         {
-           return PushMessage(Config.Encoding.GetBytes(msg),false);
+            return PushMessage(Config.Encoding.GetBytes(msg));
         }
         public int PushMessage(byte[] msg)
         {
-            return PushMessage(msg, false);
-        }
-        public int PushMessage(byte[] msg, bool check)
-        {
-            if (Config.MaxBufferCount > 0 && Messages.Count >= Config.MaxBufferCount)
+            if(mbrPooler.CurrentSize == (Config.MaxBufferCount > 0 ? Config.MaxBufferCount : defaultMaxSize))
             {
-                Messages.Dequeue();
+                mbrPooler.Popup();
             }
             MessageFragment m;
             m = new MessageFragment();
-            Interlocked.CompareExchange(ref MessageIndex, int.MinValue + 1, int.MaxValue);
-            m.MessageIndex = Interlocked.Increment(ref MessageIndex);
+            m.MessageIndex = mbrPooler.NextIndex;
             m.Buffer = new byte[msg.Length];
             Buffer.BlockCopy(msg, 0, m.Buffer, 0, msg.Length);
-            Messages.Enqueue(m);
-            OnMessageArrived();
-
-            return m.MessageIndex;
+            return mbrPooler.Pushin(m);
         }
         public MessageFragment GetMessage()
         {
-            while (Messages.Count == 0)
-            {
-                MessageLocker.WaitOne();
-                if (mbrForceClose)
-                {
-                    return null;
-                }
-                MessageLocker.Reset();
-            }
-            return Messages.Dequeue();
+            return mbrPooler.Popup();
         }
         #endregion
         internal void ForceClose()
         {
-            MessageLocker.Set();
-            mbrForceClose = true;
+            mbrPooler.AbortWait();
         }
     }
 }

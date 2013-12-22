@@ -57,6 +57,7 @@
     <Compile Include="PartialSocketServer.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Pooler.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SocketConfigure.cs" />
   </ItemGroup>

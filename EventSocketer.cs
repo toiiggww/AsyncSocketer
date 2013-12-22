@@ -35,12 +35,12 @@ namespace AsyncSocketer
         public event SockerErrorHandler Error { add { base.Events.AddHandler(evtError, value); } remove { base.Events.RemoveHandler(evtError, value); } }
         protected virtual void fireEvent(object evt, object e)
         {
-            if (evt != null)
+            if(evt != null)
             {
                 object o = base.Events[evt];
-                if (o != null)
+                if(o != null)
                 {
-                    if (evt == evtError)
+                    if(evt == evtError)
                     {
                         (o as SockerErrorHandler)(this, (e as SocketErrorArgs));
                     }
@@ -62,7 +62,11 @@ namespace AsyncSocketer
         }
         public virtual void Disconnect()
         {
-            ClientSocket.Shutdown(SocketShutdown.Both);
+            SocketAsyncEventArgs e = GetConnectAsyncEvents();
+            if(!ClientSocket.DisconnectAsync(e))
+            {
+                OnDisconnected(e);
+            }
         }
         #endregion
         //protected Thread SendThreader { get; set; }
@@ -113,7 +117,7 @@ namespace AsyncSocketer
         //    }
         //}
         protected MessagePool OutMessage { get; private set; }
-        protected ManualResetEvent SenderLocker { get; private set; }
+        //protected ManualResetEvent SenderLocker { get; private set; }
         protected MessagePool IncommeMessage { get; private set; }
         public SocketConfigure Config { get; set; }
         protected virtual Socket ClientSocket { get; set; }
@@ -140,7 +144,16 @@ namespace AsyncSocketer
             IncommeMessage = new MessagePool();
             IncommeMessage.Config = Config;
             mbrJuestSended = false;
-            SenderLocker = new ManualResetEvent(true);
+            //SenderLocker = new ManualResetEvent( true );
+            ClientSocket = new Socket(Config.RemotePoint.AddressFamily, SocketType.Stream, Config.Protocol);
+            foreach(IPAddress d in Dns.GetHostEntry(string.Empty).AddressList)
+            {
+                if(d.AddressFamily == ClientSocket.AddressFamily)
+                {
+                    ClientSocket.Bind(new IPEndPoint(d, 0));
+                    break;
+                }
+            }
         }
         public void StartClient(System.Net.IPAddress iPAddress, int p)
         {
@@ -150,35 +163,32 @@ namespace AsyncSocketer
         public void StartClient(bool witeForSend)
         {
             fireEvent(evtConnecting, null);
-            ClientSocket = new Socket(Config.RemotePoint.AddressFamily, SocketType.Stream, Config.Protocol);
-            foreach (IPAddress d in Dns.GetHostEntry(string.Empty).AddressList)
+            SocketAsyncEventArgs e = GetConnectAsyncEvents();
+            if(Config.Protocol == ProtocolType.Tcp)
             {
-                if (d.AddressFamily == AddressFamily.InterNetwork)
+                if(witeForSend)
                 {
-                    ClientSocket.Bind(new IPEndPoint(d, 0));
-                    break;
+                    MessageFragment m = OutMessage.GetMessage();
+                    (e.UserToken as EventToken).MessageID = m.MessageIndex;
+                    GetSendBuffer().SetBuffer(e, m.Buffer.Length);
+                    Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, m.Buffer.Length);
+                }
+                if(!ClientSocket.ConnectAsync(e))
+                {
+                    OnConnected(e);
                 }
             }
-            //ClientSocket.Listen(Config.TimeOut);
-            SocketAsyncEventArgs e = GetConnectAsyncEvents();
-            if (witeForSend)
+            else if(Config.Protocol == ProtocolType.Udp)
             {
-                MessageFragment m = OutMessage.GetMessage();
-                (e.UserToken as EventToken).MessageID = m.MessageIndex;
-                GetSendBuffer().SetBuffer(e, m.Buffer.Length);
-                Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, m.Buffer.Length);
+
             }
-            //(e.UserToken as EventToken).ForceReceive = startReceive;
-            if (!ClientSocket.ConnectAsync(e))
-            {
-                OnConnected(e);
-            }
+
         }
         public void StartClient() { StartClient(true); }
         public virtual int Send(byte[] msg)
         {
             int i = PreparSendMessage(msg);
-            if (!mbrJuestSended)
+            if(!mbrJuestSended)
             {
                 Send();
             }
@@ -189,32 +199,6 @@ namespace AsyncSocketer
             ClientSocket.Shutdown(SocketShutdown.Both);
             StartClient();
         }
-        //public virtual void StartRecevie(bool startReceive)
-        //{
-        //    //Console.Write(".");
-        //    if (ClientSocket != null)
-        //    {
-        //        ReceviewLocker.WaitOne();
-        //        SocketAsyncEventArgs e = GetReceiveAsyncEvents();
-        //        (e.UserToken as EventsToken).ForceReceive = startReceive;
-        //        ClientSocket.ReceiveAsync(e);
-        //    }
-        //}
-        //public virtual void StartRecevie() { StartRecevie(true); }
-        //public virtual void StartSend(bool startReceive)
-        //{
-        //    if (ClientSocket!=null)
-        //    {
-        //        SocketAsyncEventArgs e = GetSendAsyncEvents();
-        //        (e.UserToken as EventsToken).ForceReceive = startReceive;
-        //        ClientSocket.SendAsync(e);
-        //        if (startReceive)
-        //        {
-        //            StartRecevie();
-        //        }
-        //    }
-        //}
-        //public virtual void StartSend() { StartSend(true); }
         protected virtual SocketAsyncEventArgs GetConnectAsyncEvents() { return null; }
         protected virtual SocketAsyncEventArgs GetReceiveAsyncEvents() { return null; }
         protected virtual SocketAsyncEventArgs GetSendAsyncEvents() { return null; }
@@ -223,11 +207,11 @@ namespace AsyncSocketer
         protected virtual BufferManager GetSendBuffer() { return null; }
         protected virtual void OnSended(SocketAsyncEventArgs e)
         {
-            if (e.SocketError != SocketError.Success)
+            if(e.SocketError != SocketError.Success)
             {
                 SocketErrorArgs r = new SocketErrorArgs(e);
                 fireEvent(evtError, r);
-                if (!Config.OnErrorContinue)
+                if(!Config.OnErrorContinue)
                 {
                     return;
                 }
@@ -240,22 +224,25 @@ namespace AsyncSocketer
             fireEvent(evtSend, a);
             mbrJuestSended = true;
             //ClientSocket.Shutdown(SocketShutdown.Send);
-            Send();
+            if(ClientSocket.Connected)
+            {
+                Send();
+            }
         }
         protected virtual void OnReceived(SocketAsyncEventArgs e)
         {
-            if (e.BytesTransferred > 0)
+            if(e.BytesTransferred > 0)
             {
                 SocketEventArgs a = new SocketEventArgs(e);
                 //a.Buffer = new byte[e.BytesTransferred];
                 //Buffer.BlockCopy(e.Buffer, e.Offset, a.Buffer, 0, e.BytesTransferred);
                 //a.Remoter = e.RemoteEndPoint;
                 //a.MessageIndex = (e.UserToken as EventToken).MessageID;
-                IncommeMessage.PushMessage(a.Buffer, true);
+                IncommeMessage.PushMessage(a.Buffer);
                 fireEvent(evtRecevie, a);
             }
             //ClientSocket.Shutdown(SocketShutdown.Receive);
-            if (ClientSocket.Connected)
+            if(ClientSocket.Connected)
             {
                 Receive();
             }
@@ -272,13 +259,18 @@ namespace AsyncSocketer
             SocketErrorArgs r = new SocketErrorArgs(x);
             fireEvent(evtError, r);
         }
+        protected virtual void OnDisconnected(SocketAsyncEventArgs e)
+        {
+            SocketEventArgs a = new SocketEventArgs(e);
+            fireEvent(evtDisconnected, e);
+        }
         protected virtual void Receive()
         {
-            if (ClientSocket != null && ClientSocket.Connected)
+            if(ClientSocket != null && ClientSocket.Connected)
             {
                 SocketAsyncEventArgs e = GetReceiveAsyncEvents();
                 GetRecevieBuffer().SetBuffer(e, Config.BufferSize);
-                switch (Config.Protocol)
+                switch(Config.Protocol)
                 {
                     case ProtocolType.Ggp:
                         break;
@@ -325,13 +317,13 @@ namespace AsyncSocketer
                     case ProtocolType.SpxII:
                         break;
                     case ProtocolType.Tcp:
-                        if (!ClientSocket.ReceiveAsync(e))
+                        if(!ClientSocket.ReceiveAsync(e))
                         {
                             OnReceived(e);
                         }
                         break;
                     case ProtocolType.Udp:
-                        if (!ClientSocket.ReceiveFromAsync(e))
+                        if(!ClientSocket.ReceiveFromAsync(e))
                         {
                             OnReceived(e);
                         }
@@ -350,7 +342,7 @@ namespace AsyncSocketer
             (e.UserToken as EventToken).MessageID = m.MessageIndex;
             GetSendBuffer().SetBuffer(e, m.Buffer.Length);
             Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, m.Buffer.Length);
-            switch (Config.Protocol)
+            switch(Config.Protocol)
             {
                 case ProtocolType.Ggp:
                     break;
@@ -397,13 +389,13 @@ namespace AsyncSocketer
                 case ProtocolType.SpxII:
                     break;
                 case ProtocolType.Tcp:
-                    if (!ClientSocket.SendAsync(e))
+                    if(!ClientSocket.SendAsync(e))
                     {
                         OnSended(e);
                     }
                     break;
                 case ProtocolType.Udp:
-                    if (!ClientSocket.SendToAsync(e))
+                    if(!ClientSocket.SendToAsync(e))
                     {
                         OnSended(e);
                     }
@@ -424,7 +416,7 @@ namespace AsyncSocketer
         {
             SocketStatus = e.SocketError;
             EventToken t = (e.UserToken as EventToken);
-            if (t != null)
+            if(t != null)
             {
                 SessionID = t.SessionID;
                 MessageIndex = t.MessageID;
@@ -444,15 +436,15 @@ namespace AsyncSocketer
             string b = "", s = "";
             r = string.Format("{0}{1}Index \\ Offset  ", r, Environment.NewLine);
             int i = 0, j = 0;
-            for (; i < 16; i++)
+            for(; i < 16; i++)
             {
                 r = string.Format("{0} _{1:X}", r, i);
             }
             r = r + " [_____string_____]" + Environment.NewLine;
             i = Buffer.Length / 16;
-            for (int k = 0; k < i; k++)
+            for(int k = 0; k < i; k++)
             {
-                for (j = k * 16; j < (((k + 1) * 16 > Buffer.Length) ? Buffer.Length - 1 : ((k + 1) * 16)); j++)
+                for(j = k * 16; j < (((k + 1) * 16 > Buffer.Length) ? Buffer.Length - 1 : ((k + 1) * 16)); j++)
                 {
                     b = string.Format("{0} {1:X2}", b, Buffer[j]);
                     s = string.Format("{0}{1}", s, (Buffer[j] == 0 ? '.' : ((Buffer[j] == 0x0a || Buffer[j] == 0x0d || Buffer[j] == 0x08 || Buffer[j] == 0x7f) ? '_' : (char)Buffer[j])));
@@ -460,14 +452,14 @@ namespace AsyncSocketer
                 r = string.Format("{0}{1:X11}_ |  {2}  {3:50}{4}", r, k, b, s, Environment.NewLine);
                 b = "";
                 s = "";
-                if (k == i - 1)
+                if(k == i - 1)
                 {
-                    for (j = (k + 1) * 16; j < Buffer.Length; j++)
+                    for(j = (k + 1) * 16; j < Buffer.Length; j++)
                     {
                         b = string.Format("{0} {1:X2}", b, Buffer[j]);
                         s = string.Format("{0}{1}", s, (Buffer[j] == 0 ? '.' : ((Buffer[j] == 0x0a || Buffer[j] == 0x0d || Buffer[j] == 0x08 || Buffer[j] == 0x7f) ? '_' : (char)Buffer[j])));
                     }
-                    for (j = 0; j < (i + 1) * 16 - Buffer.Length; j++)
+                    for(j = 0; j < (i + 1) * 16 - Buffer.Length; j++)
                     {
                         b = string.Format("{0}   ", b);//, Buffer[j]);
                         //s = string.Format("{0}   ", s);//, (Buffer[j] == 0 ? '.' : ((Buffer[j] == 0x0a || Buffer[j] == 0x0d || Buffer[j] == 0x08 || Buffer[j] == 0x7f) ? '_' : (char)Buffer[j])));

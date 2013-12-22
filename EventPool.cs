@@ -9,62 +9,47 @@ namespace AsyncSocketer
 {
     class EventPool
     {
-        public Queue<SocketAsyncEventArgs> Pooler { get; private set; }
-        private int TokenIndex;
-        private bool mbrForceClose;
-        private AutoResetEvent PoolerLocker { get; set; }
-        //public int PoolerSize { get; private set; }
+        private Pooler<EventArgObject> mbrPooler;
         public EventPool(int size)
         {
-            TokenIndex = 0;
-            Pooler = new Queue<SocketAsyncEventArgs>(size);
-            PoolerLocker = new AutoResetEvent(false);
+            mbrPooler = new Pooler<EventArgObject>(size, 0, size);
         }
         public int NextTokenID
         {
-            get
-            {
-                return Interlocked.Increment(ref TokenIndex);
-            }
+            get { return mbrPooler.NextIndex; }
         }
         public SocketAsyncEventArgs Pop(SocketConfigure config)
         {
-            lock (Pooler)
-            {
-                if (Pooler.Count == 0)
-                {
-#if DEBUG
-                    System.Console.WriteLine("Pooler is empty,WaitOne");
-#endif
-                    PoolerLocker.WaitOne();
-                    if (mbrForceClose)
-                    {
-                        return null;
-                    }
-                    PoolerLocker.Reset();
-                }
-                SocketAsyncEventArgs e = Pooler.Dequeue();
-                e.RemoteEndPoint = config.RemotePoint;
-                return e;
-            }
+            EventArgObject o = mbrPooler.Popup();
+            o.SocketEventArgs.RemoteEndPoint = config.RemotePoint;
+            return o.SocketEventArgs;
         }
-        public bool Push(SocketAsyncEventArgs e)
+        public int Push(SocketAsyncEventArgs e)
         {
-            if (e == null)
-            {
-                return false;
-            }
-            Pooler.Enqueue(e);
-            if (Pooler.Count == 1)
-            {
-                PoolerLocker.Set();
-            }
-            return true;
+            EventArgObject o = new EventArgObject(e, mbrPooler.NextIndex);
+            return mbrPooler.Pushin(o);
         }
-        internal void ForceClose()
+        public void ForceClose()
         {
-            mbrForceClose = true;
-            PoolerLocker.Set();
+            mbrPooler.AbortWait();
+        }
+    }
+    class EventArgObject : IDentity
+    {
+        #region IDentity Members
+
+        public int IDentity
+        {
+            get { return mbrIDentity; }
+        }
+
+        #endregion
+        private int mbrIDentity;
+        public SocketAsyncEventArgs SocketEventArgs { get; private set; }
+        public EventArgObject(SocketAsyncEventArgs e, int id)
+        {
+            mbrIDentity = id;
+            SocketEventArgs = e;
         }
     }
 }

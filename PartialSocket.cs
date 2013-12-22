@@ -78,7 +78,6 @@ namespace AsyncSocketer
                     e.UserToken = new EventToken(mbrEventRecevicer.NextTokenID, Config);
                     e.Completed += (o, x) =>
                     {
-                        Console.Write("/");
                         if (x.SocketError != SocketError.Success)
                         {
                             OnError(x);
@@ -91,8 +90,8 @@ namespace AsyncSocketer
                         {
                             OnReceived(x);
                         }
+                        GetRecevieBuffer().FreeBuffer(x);
                         mbrEventRecevicer.Push(x);
-                        //ReceviewLocker.Reset();
                     };
                     GetRecevieBuffer().SetBuffer(e);
                     GetRecevieBuffer().SetBuffer(e, 5);
@@ -133,6 +132,8 @@ namespace AsyncSocketer
                         {
                             OnSended(x);
                         }
+                        GetSendBuffer().FreeBuffer(x);
+                        mbrEventSender.Push(x);
                     };
                     GetSendBuffer().SetBuffer(e);
                     GetSendBuffer().SetBuffer(e, 3);
