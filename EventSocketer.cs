@@ -135,7 +135,7 @@ namespace AsyncSocketer
                     ClientSocket = new TcpSocketer(Config);
                     break;
                 case ProtocolType.Udp:
-                    ClientSocket = new TcpSocketer(Config);
+                    ClientSocket = new UdpSocketer(Config);
                     break;
                 case ProtocolType.Unknown:
                     break;

@@ -87,14 +87,14 @@ namespace AsyncSocketer
                     }
                     else if (x.LastOperation == SocketAsyncOperation.Receive)
                     {
-                        ( x.UserToken as EventToken ).Next(x);
+                        (x.UserToken as EventToken).Next(x);
                         if (x.BytesTransferred == Config.BufferSize)
                         {
                             x.AcceptSocket.ReceiveAsync(x);
                         }
                         else
                         {
-                            a.Buffer = ( x.UserToken as EventToken ).Concate();
+                            a.Buffer = (x.UserToken as EventToken).Concate();
                             fireEvent(evtRecevie, a);
                         }
                     }
@@ -114,7 +114,7 @@ namespace AsyncSocketer
         }
         private void RecycleSocket(SocketAsyncEventArgs x)
         {
-            ( x.UserToken as EventToken ).Reset();
+            (x.UserToken as EventToken).Reset();
             SocketBuffer.FreeBuffer(x);
             SocketPooler.Push(x);
         }

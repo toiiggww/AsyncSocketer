@@ -18,9 +18,9 @@ namespace AsyncSocketer
 
         private void initPooler()
         {
-            mbrPooler = new Pooler<MessageFragment>(Config.MaxBufferCount>0 ? Config.MaxBufferCount : defaultMaxSize);
+            mbrPooler = new Pooler<MessageFragment>(Config.MaxBufferCount > 0 ? Config.MaxBufferCount : defaultMaxSize);
         }
-        private int defaultMaxSize = 2^24;
+        private int defaultMaxSize = 2 ^ 24;
         public MessagePool()
         {
             Config = SocketConfigure.Instance;
@@ -35,7 +35,7 @@ namespace AsyncSocketer
         }
         public int PushMessage(byte[] msg)
         {
-            if(mbrPooler.CurrentSize == (Config.MaxBufferCount > 0 ? Config.MaxBufferCount : defaultMaxSize))
+            if (mbrPooler.CurrentSize == (Config.MaxBufferCount > 0 ? Config.MaxBufferCount : defaultMaxSize))
             {
                 mbrPooler.Popup();
             }

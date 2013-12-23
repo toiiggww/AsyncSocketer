@@ -21,7 +21,7 @@ namespace AsyncSocketer
         }
         public MessageFragment Next()
         {
-            if(Messages.Count > 0)
+            if (Messages.Count > 0)
             {
                 CurrentIndex++;
                 return Messages.Dequeue();
@@ -39,7 +39,7 @@ namespace AsyncSocketer
             MessageID = msg.MessageIndex;
             byte[] p = msg.Buffer;
             int i = p.Length, l, o;
-            while(i > 0)
+            while (i > 0)
             {
                 l = (i - Config.BufferSize > 0 ? Config.BufferSize : i);
                 MessageFragment m = new MessageFragment();
@@ -54,23 +54,23 @@ namespace AsyncSocketer
         }
         internal byte[] Concate()
         {
-            if(Messages.Count == 0)
+            if (Messages.Count == 0)
             {
                 return null;
             }
-            if(Messages.Count == 0)
+            if (Messages.Count == 0)
             {
                 return Messages.Dequeue().Buffer;
             }
             int l = 0;
-            foreach(MessageFragment m in Messages)
+            foreach (MessageFragment m in Messages)
             {
                 l += m.Buffer.Length;
             }
             byte[] r = new byte[l];
             l = 0;
             byte[][] bs = (from m in Messages orderby m.MessageIndex select m.Buffer).ToArray();
-            for(int i = 0; i < bs.Length; i++)
+            for (int i = 0; i < bs.Length; i++)
             {
                 Buffer.BlockCopy(bs[i], 0, r, l, bs[i].Length);
                 l += bs[i].Length;

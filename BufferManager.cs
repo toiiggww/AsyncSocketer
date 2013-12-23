@@ -34,7 +34,7 @@ namespace AsyncSocketer
         {
             return SetBuffer(e, BufferSize);
         }
-        public bool SetBuffer(System.Net.Sockets.SocketAsyncEventArgs e,int size)
+        public bool SetBuffer(System.Net.Sockets.SocketAsyncEventArgs e, int size)
         {
             //e.SetBuffer(null, 0, 0);
             FreeBuffer(e);

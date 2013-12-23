@@ -56,7 +56,7 @@ namespace AsyncSocketer
                         }
                     }
                 }
-                if (mbrPort!=int.MinValue)
+                if (mbrPort != int.MinValue)
                 {
                     mbrRemote = new IPEndPoint(mbrIP, mbrPort);
                 }
@@ -134,7 +134,7 @@ namespace AsyncSocketer
         public Encoding Encoding { get { return mbrEncoding; } set { if (mbrEncoding != value) mbrEncoding = value; } }
         public SocketConfigure()
         {
-            IPAddress.TryParse("127.0.0.1",out mbrIP);
+            IPAddress.TryParse("127.0.0.1", out mbrIP);
             MaxDataConnection = 32;
             BufferSize = 4916;
             OnErrorContinue = true;

@@ -42,7 +42,7 @@ namespace AsyncSocketer
         }
         public void AbortWait()
         {
-            mbrForAbort=true;
+            mbrForAbort = true;
             mbrEmptyLocker.Set();
         }
         public int NextIndex
@@ -63,6 +63,6 @@ namespace AsyncSocketer
             mbrEmptyLocker = new AutoResetEvent(false);
         }
         public Pooler(int size, int index) : this(size, index, int.MaxValue) { }
-        public Pooler(int size) : this(size, int.MinValue+1, int.MaxValue) { }
+        public Pooler(int size) : this(size, int.MinValue + 1, int.MaxValue) { }
     }
 }
