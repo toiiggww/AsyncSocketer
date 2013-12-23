@@ -98,7 +98,7 @@ namespace AsyncSocketer
         private SocketAsyncEventArgs Accept()
         {
             SocketAsyncEventArgs e = GetAcceptAsyncEvent();
-            if (!ClientSocket.AcceptAsync(e))
+            if (!ClientSocket.Accept(e))
             {
                 OnAccepted(e);
             }

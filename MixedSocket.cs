@@ -22,7 +22,7 @@ namespace AsyncSocketer
             SocketPooler = new EventPool(Config.MaxDataConnection);
             //IncommeMessage.Config = Config;
             OutMessage.Config = Config;
-            ClientSocket = new Socket(Config.RemotePoint.AddressFamily, SocketType.Stream, Config.Protocol);
+            ClientSocket = new ISocketer(Config);
             for (int i = 0; i < Config.MaxDataConnection; i++)
             {
                 SocketPooler.Push(NewSocket());

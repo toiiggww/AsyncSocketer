@@ -40,6 +40,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ISocketer.cs" />
     <Compile Include="PartialSocket.cs">
       <SubType>Component</SubType>
     </Compile>
