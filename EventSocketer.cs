@@ -160,25 +160,17 @@ namespace AsyncSocketer
         {
             fireEvent(evtConnecting, null);
             SocketAsyncEventArgs e = GetConnectAsyncEvents();
-            if (Config.Protocol == ProtocolType.Tcp)
+            if (witeForSend)
             {
-                if (witeForSend)
-                {
-                    MessageFragment m = OutMessage.GetMessage();
-                    (e.UserToken as EventToken).MessageID = m.MessageIndex;
-                    GetSendBuffer().SetBuffer(e, m.Buffer.Length);
-                    Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, m.Buffer.Length);
-                }
-                if (!ClientSocket.Connect(e))
-                {
-                    OnConnected(e);
-                }
+                MessageFragment m = OutMessage.GetMessage();
+                (e.UserToken as EventToken).MessageID = m.MessageIndex;
+                GetSendBuffer().SetBuffer(e, m.Buffer.Length);
+                Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, m.Buffer.Length);
             }
-            else if (Config.Protocol == ProtocolType.Udp)
+            if (!ClientSocket.Connect(e))
             {
-
+                OnConnected(e);
             }
-
         }
         public void StartClient() { StartClient(true); }
         public virtual int Send(byte[] msg)
@@ -215,14 +207,7 @@ namespace AsyncSocketer
             SocketEventArgs a = new SocketEventArgs(e);
             fireEvent(evtSend, a);
             mbrJuestSended = true;
-            if (Config.Protocol == ProtocolType.Tcp && ClientSocket.Connected)
-            {
-                Send();
-            }
-            else if (Config.Protocol == ProtocolType.Udp)
-            {
-                Send();
-            }
+            Send();
         }
         protected virtual void OnReceived(SocketAsyncEventArgs e)
         {
@@ -232,14 +217,7 @@ namespace AsyncSocketer
                 IncommeMessage.PushMessage(a.Buffer);
                 fireEvent(evtRecevie, a);
             }
-            if (Config.Protocol == ProtocolType.Tcp && ClientSocket.Connected)
-            {
-                Receive();
-            }
-            else if (Config.Protocol == ProtocolType.Udp)
-            {
-                Receive();
-            }
+            Receive();
         }
         protected virtual void OnConnected(SocketAsyncEventArgs e)
         {
@@ -259,7 +237,7 @@ namespace AsyncSocketer
         }
         protected virtual void Receive()
         {
-            if (ClientSocket != null && ClientSocket.Connected)
+            if (ClientSocket != null)
             {
                 SocketAsyncEventArgs e = GetReceiveAsyncEvents();
                 GetRecevieBuffer().SetBuffer(e, Config.BufferSize);
@@ -278,7 +256,7 @@ namespace AsyncSocketer
             Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, m.Buffer.Length);
             if (!ClientSocket.Send(e))
             {
-                OnReceived(e);
+                OnSended(e);
             }
         }
     }

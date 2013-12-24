@@ -4,7 +4,7 @@ using System.Net.Sockets;
 
 namespace AsyncSocketer
 {
-    public class ISocketer
+    public abstract class ISocketer
     {
         public ISocketer(SocketConfigure cfg)
         {
@@ -63,6 +63,14 @@ namespace AsyncSocketer
         {
             ClientSocker = new Socket(Config.RemotePoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         }
+        public override bool Send(SocketAsyncEventArgs e)
+        {
+            return ClientSocker.Connected ? base.Send(e) : false;
+        }
+        public override bool Receive(SocketAsyncEventArgs e)
+        {
+            return ClientSocker.Connected ? base.Receive(e) : false;
+        }
     }
     public class UdpSocketer : ISocketer
     {
@@ -73,11 +81,11 @@ namespace AsyncSocketer
         }
         public override bool Connect(SocketAsyncEventArgs e)
         {
-            throw new NotSupportedException();
+            return Send(e);
         }
         public override bool Disconnect(SocketAsyncEventArgs e)
         {
-            throw new NotSupportedException();
+            return Send(e);
         }
         public override bool Send(SocketAsyncEventArgs e)
         {
