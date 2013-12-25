@@ -26,7 +26,7 @@ namespace AsyncSocketer
         public event SocketEventHandler Sended { add { base.Events.AddHandler(evtSend, value); } remove { base.Events.RemoveHandler(evtSend, value); } }
         public event SocketEventHandler Recevied { add { base.Events.AddHandler(evtRecevie, value); } remove { base.Events.RemoveHandler(evtRecevie, value); } }
         public event SocketEventHandler Disconnected { add { base.Events.AddHandler(evtDisconnected, value); } remove { base.Events.RemoveHandler(evtDisconnected, value); } }
-        public event SockerErrorHandler Error { add { base.Events.AddHandler(evtError, value); } remove { base.Events.RemoveHandler(evtError, value); } }
+        public event SocketErrorHandler Error { add { base.Events.AddHandler(evtError, value); } remove { base.Events.RemoveHandler(evtError, value); } }
         protected virtual void fireEvent(object evt, object e)
         {
             if (evt != null)
@@ -36,7 +36,11 @@ namespace AsyncSocketer
                 {
                     if (evt == evtError)
                     {
-                        (o as SockerErrorHandler)(this, (e as SocketErrorArgs));
+                        (o as SocketErrorHandler)(this, (e as SocketErrorArgs));
+                    }
+                    else if(evt == evtPerformance)
+                    {
+                        (o as SocketPerformanceHandler)(this, (e as PerformanceCountArgs));
                     }
                     else
                     {
@@ -63,6 +67,27 @@ namespace AsyncSocketer
             }
         }
         #endregion
+        #region Performance
+        private object evtPerformance;
+        private Timer mbrPerformanceTimer;
+        public event SocketPerformanceHandler Performance { add { base.Events.AddHandler(evtPerformance, value); } remove { base.Events.RemoveHandler(evtPerformance, value); } }
+        private int mbrPSendC,
+            mbrPSendB,
+            mbrPSendT,
+            mbrPSendM,
+            mbrPSendI,
+            mbrPReceiveC,
+            mbrPReceiveB,
+            mbrPReceiveT,
+            mbrPReceiveM,
+            mbrPReceiveI;
+        public bool EnablePerformance
+        {
+            set
+            {
+            }
+        }
+        #endregion
         protected MessagePool OutMessage { get; private set; }
         protected MessagePool IncommeMessage { get; private set; }
         public SocketConfigure Config { get; set; }
@@ -70,7 +95,7 @@ namespace AsyncSocketer
         public bool Connedted { get { return ClientSocket.Connected; } }
         public virtual int PreparSendMessage(byte[] msg) { return OutMessage.PushMessage(msg); }
         public virtual int PreparSendMessage(string msg) { return OutMessage.PushMessage(msg); }
-        private bool mbrJuestSended;
+        private bool mbrJustSended,mbrJustRecevied;
         protected EventSocketer()
         {
             evtConnecting = new object();
@@ -88,7 +113,8 @@ namespace AsyncSocketer
             OutMessage.Config = Config;
             IncommeMessage = new MessagePool();
             IncommeMessage.Config = Config;
-            mbrJuestSended = false;
+            mbrJustSended = false;
+            mbrJustRecevied = false;
             switch (Config.Protocol)
             {
                 case ProtocolType.Ggp:
@@ -176,7 +202,7 @@ namespace AsyncSocketer
         public virtual int Send(byte[] msg)
         {
             int i = PreparSendMessage(msg);
-            if (!mbrJuestSended)
+            if (!mbrJustSended)
             {
                 Send();
             }
@@ -206,8 +232,12 @@ namespace AsyncSocketer
             }
             SocketEventArgs a = new SocketEventArgs(e);
             fireEvent(evtSend, a);
-            mbrJuestSended = true;
+            mbrJustSended = true;
             Send();
+            if (!mbrJustRecevied)
+            {
+                Receive();
+            }
         }
         protected virtual void OnReceived(SocketAsyncEventArgs e)
         {
@@ -217,6 +247,7 @@ namespace AsyncSocketer
                 IncommeMessage.PushMessage(a.Buffer);
                 fireEvent(evtRecevie, a);
             }
+            mbrJustRecevied = true;
             Receive();
         }
         protected virtual void OnConnected(SocketAsyncEventArgs e)
@@ -262,7 +293,8 @@ namespace AsyncSocketer
     }
     public delegate void SocketEventHandler(object sender, SocketEventArgs e);
     public delegate void ServerSocketEventHandler(object sender, ServerSocketEventArgs e);
-    public delegate void SockerErrorHandler(object sender, SocketErrorArgs e);
+    public delegate void SocketErrorHandler(object sender, SocketErrorArgs e);
+    public delegate void SocketPerformanceHandler(object sender, PerformanceCountArgs e);
     public class SocketEventArgs : EventArgs
     {
         public SocketEventArgs(SocketAsyncEventArgs e)
@@ -344,5 +376,22 @@ namespace AsyncSocketer
             SocketError = e.SocketError;
             Operation = e.LastOperation;
         }
+    }
+    public class PerformanceCountArgs : EventArgs
+    {
+        public int SendPackages { get; set; }
+        public int SendBytes { get; set; }
+        public int TotalSendPackages { get; set; }
+        public int TotalSendBytes { get; set; }
+        public int ReceivePackages { get; set; }
+        public int ReceiveBytes { get; set; }
+        public int TotalReceivePackages { get; set; }
+        public int TotalReceiveBytes { get; set; }
+        public int MaxSendBytes { get; set; }
+        public int MaxReceivedBytes { get; set; }
+        public int SendMessagesInPooler { get; set; }
+        public int ReceivedMessagesInPooler { get; set; }
+        public TimeSpan MaxSendTime { get; set; }
+        public TimeSpan MaxReceiveTime { get; set; }
     }
 }
