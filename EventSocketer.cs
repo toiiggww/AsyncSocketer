@@ -70,21 +70,47 @@ namespace AsyncSocketer
         #region Performance
         private object evtPerformance;
         private Timer mbrPerformanceTimer;
+        public int PerformanceInMin { get; set; }
+        public int PerformanceAfterLimit { get; set; }
         public event SocketPerformanceHandler Performance { add { base.Events.AddHandler(evtPerformance, value); } remove { base.Events.RemoveHandler(evtPerformance, value); } }
-        private int mbrPSendC,
-            mbrPSendB,
-            mbrPSendT,
-            mbrPSendM,
-            mbrPSendI,
-            mbrPReceiveC,
-            mbrPReceiveB,
-            mbrPReceiveT,
-            mbrPReceiveM,
-            mbrPReceiveI;
+        private int mbrPSendC,  // Send Count
+            mbrPSendB,          // Bytes
+            mbrPSendT,          // Total Count
+            mbrPSendM,          // Max Package length
+            mbrPSendL,          // Total Bytes
+            mbrPSendI,          // In OutMessage Count
+            mbrPReceiveC,       // Receve Count
+            mbrPReceiveB,       // Bytes
+            mbrPReceiveT,       // Total Count
+            mbrPReceiveM,       // Max Package length
+            mbrPReceiveL,       // Total Bytes
+            mbrPReceiveI,       // In IncommeMessage Count
+            mbrPConT,           // Total Connect
+            mbrPConF,           // Connect fail
+            mbrPDisC,           // Disconnect
+            mbrPErrC;           // Errors
+        private bool mbrPerformanceEnabled;
         public bool EnablePerformance
         {
             set
             {
+                if (mbrPerformanceEnabled==value)
+                {
+                    return;
+                }
+                mbrPerformanceEnabled = value;
+                if (value)
+                {
+                    mbrPerformanceTimer.Change(60 * 1000 * (PerformanceInMin > 0 ? PerformanceInMin : 1), Timeout.Infinite);
+                }
+                else
+                {
+                    mbrPerformanceTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                }
+            }
+            get
+            {
+                return mbrPerformanceEnabled;
             }
         }
         #endregion
@@ -104,6 +130,35 @@ namespace AsyncSocketer
             evtRecevie = new object();
             evtDisconnected = new object();
             evtError = new object();
+            mbrPerformanceTimer = new Timer(
+                (o) =>
+                {
+                    if (mbrPerformanceEnabled)
+                    {
+                        PerformanceCountArgs p = new PerformanceCountArgs();
+                        p.ConnectFailed = mbrPConF;
+                        p.Connectting = mbrPConT;
+                        p.Disconnectting = mbrPDisC;
+                        p.Errors = mbrPErrC;
+                        p.MaxReceivedBytes = mbrPReceiveM;
+                        p.MaxSendBytes = mbrPSendM;
+                        p.ReceiveBytes = mbrPReceiveB;
+                        p.ReceivedMessagesInPooler = IncommeMessage.Count;
+                        p.ReceivePackages = mbrPReceiveC;
+                        p.SendBytes = mbrPSendB;
+                        p.SendMessagesInPooler = OutMessage.Count;
+                        p.SendPackages = mbrPSendC;
+                        p.TotalReceiveBytes = mbrPReceiveL;
+                        p.TotalReceivePackages = mbrPReceiveT;
+                        p.TotalSendBytes = mbrPSendL;
+                        p.TotalSendPackages = mbrPSendT;
+                        mbrPSendB = 0;
+                        mbrPSendC = 0;
+                        mbrPReceiveB = 0;
+                        mbrPReceiveC = 0;
+                        fireEvent(evtPerformance, p);
+                    }
+                }, null, Timeout.Infinite, Timeout.Infinite);
         }
         protected EventSocketer(SocketConfigure sc)
             : this()
@@ -230,6 +285,18 @@ namespace AsyncSocketer
                     return;
                 }
             }
+            if (mbrPerformanceEnabled)
+            {
+                int T = e.BytesTransferred;
+                mbrPSendB += T;
+                mbrPSendC++;
+                if (mbrPSendM < T)
+                {
+                    mbrPSendM = T;
+                }
+                mbrPSendT++;
+                mbrPSendL += T;
+            }
             SocketEventArgs a = new SocketEventArgs(e);
             fireEvent(evtSend, a);
             mbrJustSended = true;
@@ -241,28 +308,56 @@ namespace AsyncSocketer
         }
         protected virtual void OnReceived(SocketAsyncEventArgs e)
         {
-            if (e.BytesTransferred > 0)
+            int T = e.BytesTransferred;
+            if (T > 0)
             {
                 SocketEventArgs a = new SocketEventArgs(e);
                 IncommeMessage.PushMessage(a.Buffer);
                 fireEvent(evtRecevie, a);
+            }
+            if (mbrPerformanceEnabled)
+            {
+                mbrPReceiveB += T;
+                mbrPReceiveC++;
+                if (mbrPReceiveM < T)
+                {
+                    mbrPReceiveM = T;
+                }
+                mbrPReceiveL++;
+                mbrPReceiveL += T;
             }
             mbrJustRecevied = true;
             Receive();
         }
         protected virtual void OnConnected(SocketAsyncEventArgs e)
         {
+            if (mbrPerformanceEnabled)
+            {
+                mbrPConT++;
+                if (e.SocketError != SocketError.Success)
+                {
+                    mbrPConF++;
+                }
+            }
             SocketEventArgs a = new SocketEventArgs(e);
             fireEvent(evtConnected, a);
             Receive();
         }
         protected virtual void OnError(SocketAsyncEventArgs x)
         {
+            if (mbrPerformanceEnabled)
+            {
+                mbrPErrC++;
+            }
             SocketErrorArgs r = new SocketErrorArgs(x);
             fireEvent(evtError, r);
         }
         protected virtual void OnDisconnected(SocketAsyncEventArgs e)
         {
+            if (mbrPerformanceEnabled)
+            {
+                mbrPDisC++;
+            }
             SocketEventArgs a = new SocketEventArgs(e);
             fireEvent(evtDisconnected, e);
         }
@@ -391,7 +486,16 @@ namespace AsyncSocketer
         public int MaxReceivedBytes { get; set; }
         public int SendMessagesInPooler { get; set; }
         public int ReceivedMessagesInPooler { get; set; }
+        public int Connectting { get; set; }
+        public int ConnectFailed { get; set; }
+        public int Disconnectting { get; set; }
+        public int Errors { get; set; }
         public TimeSpan MaxSendTime { get; set; }
         public TimeSpan MaxReceiveTime { get; set; }
+    }
+    public class ServerPerformanceCountArgs : PerformanceCountArgs
+    {
+        public int AcceptedCount { get; set; }
+        public int AcceptedError { get; set; }
     }
 }

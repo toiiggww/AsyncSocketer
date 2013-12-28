@@ -12,6 +12,14 @@ namespace AsyncSocketer
         }
         protected SocketConfigure Config { get; private set; }
         protected Socket ClientSocker { get; set; }
+        public void SetTimeOut()
+        {
+            if (Config.TimeOut > 0)
+            {
+                ClientSocker.SendTimeout = Config.TimeOut * 1000;
+                ClientSocker.ReceiveTimeout = Config.TimeOut * 1000;
+            }
+        }
         public virtual bool Connect(SocketAsyncEventArgs e)
         {
             return ClientSocker.ConnectAsync(e);
@@ -62,6 +70,7 @@ namespace AsyncSocketer
             : base(cfg)
         {
             ClientSocker = new Socket(Config.RemotePoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            SetTimeOut();
         }
         public override bool Send(SocketAsyncEventArgs e)
         {
@@ -78,6 +87,7 @@ namespace AsyncSocketer
             : base(cfg)
         {
             ClientSocker = new Socket(Config.RemotePoint.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+            SetTimeOut();
         }
         public override bool Connect(SocketAsyncEventArgs e)
         {

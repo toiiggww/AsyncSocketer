@@ -26,6 +26,7 @@ namespace AsyncSocketer
             Config = SocketConfigure.Instance;
             initPooler();
         }
+        public int Count { get { return mbrPooler.CurrentSize; } }
         #region Messager
         private Pooler<MessageFragment> mbrPooler;
         public SocketConfigure Config { get; set; }

@@ -122,10 +122,7 @@ namespace AsyncSocketer
         public int BufferShard { get; set; }
         public int MaxBufferCount { get; set; }
         public int MaxDataConnection { get; set; }
-        public int TotalClientConnection { get; set; }
-        public int ReceiveMessagePerConnection { get; set; }
-        public int SendMessagePerConnection { get; set; }
-        public int EventCount { get; set; }
+        public int ListenPort { get; set; }
         public bool OnErrorContinue { get; set; }
         public System.Net.Sockets.ProtocolType Protocol { get; set; }
         private static SocketConfigure mbrInstance = new SocketConfigure();

@@ -80,7 +80,7 @@ namespace AsyncSocketer
             try
             {
                 ClientSocket.Bind(Config.RemotePoint);
-                ClientSocket.Listen(Config.MaxDataConnection);
+                ClientSocket.Listen(Config.ListenPort);
                 SocketAsyncEventArgs e = Accept();
                 fireEvent(evtBeginAccept, e);
                 return true;
