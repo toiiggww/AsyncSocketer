@@ -124,9 +124,10 @@ namespace AsyncSocketer
         public int MaxDataConnection { get; set; }
         public int ListenPort { get; set; }
         public bool OnErrorContinue { get; set; }
+        public bool SendDataOnConnected { get; set; }
         public System.Net.Sockets.ProtocolType Protocol { get; set; }
-        private static SocketConfigure mbrInstance = new SocketConfigure();
-        public static SocketConfigure Instance { get { return mbrInstance; } }
+        //private static SocketConfigure mbrInstance = new SocketConfigure();
+        //public static SocketConfigure Instance { get { mbrInstance.Protocol = System.Net.Sockets.ProtocolType.Tcp; return mbrInstance; } }
         private Encoding mbrEncoding = Encoding.UTF8;
         public Encoding Encoding { get { return mbrEncoding; } set { if (mbrEncoding != value) mbrEncoding = value; } }
         public SocketConfigure()
@@ -135,10 +136,12 @@ namespace AsyncSocketer
             MaxDataConnection = 32;
             BufferSize = 4916;
             OnErrorContinue = true;
-            Protocol = System.Net.Sockets.ProtocolType.Tcp;
+            //Protocol = System.Net.Sockets.ProtocolType.Tcp;
             ConnectCount = 3;
             MaxBufferCount = 1024;
             mbrPort = int.MinValue;
+            SendDataOnConnected = true;
+            ListenPort = 0;
         }
     }
 }

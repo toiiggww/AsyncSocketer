@@ -34,7 +34,7 @@ namespace AsyncSocketer
         public int Pushin(TEArtType tt)
         {
             mbrPooler.Enqueue(tt);
-            if (mbrPooler.Count == 1)
+            if (mbrPooler.Count >= 1)
             {
                 mbrEmptyLocker.Set();
             }

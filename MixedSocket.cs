@@ -12,7 +12,8 @@ namespace AsyncSocketer
         {
             if (sc == null)
             {
-                Config = SocketConfigure.Instance;
+                Config = new SocketConfigure();
+                Config.Protocol = ProtocolType.Tcp;
             }
             else
             {
@@ -21,7 +22,7 @@ namespace AsyncSocketer
             SocketBuffer = new BufferManager(Config.MaxDataConnection);
             SocketPooler = new EventPool(Config.MaxDataConnection);
             //IncommeMessage.Config = Config;
-            OutMessage.Config = Config;
+            //OutMessage.Config = Config;
             for (int i = 0; i < Config.MaxDataConnection; i++)
             {
                 SocketPooler.Push(NewSocket());

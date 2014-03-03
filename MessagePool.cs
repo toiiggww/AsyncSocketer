@@ -9,47 +9,51 @@ namespace AsyncSocketer
 {
     public class MessagePool
     {
-        public MessagePool(SocketConfigure cfg)
-            : this()
+        public MessagePool(int mx)
         {
-            Config = cfg;
+            defaultMaxSize = mx;
             initPooler();
         }
 
         private void initPooler()
         {
-            mbrPooler = new Pooler<MessageFragment>(Config.MaxBufferCount > 0 ? Config.MaxBufferCount : defaultMaxSize);
+            mbrPooler = new Pooler<MessageFragment>(defaultMaxSize);
         }
-        private int defaultMaxSize = 2 ^ 24;
+        private int defaultMaxSize;//= 2 ^ 24;
         public MessagePool()
+            : this(2 ^ 24)
         {
-            Config = SocketConfigure.Instance;
-            initPooler();
         }
         public int Count { get { return mbrPooler.CurrentSize; } }
         #region Messager
         private Pooler<MessageFragment> mbrPooler;
-        public SocketConfigure Config { get; set; }
-        public int PushMessage(string msg)
-        {
-            return PushMessage(Config.Encoding.GetBytes(msg));
-        }
+        //public int PushMessage(string msg)
+        //{
+        //    return PushMessage(Config.Encoding.GetBytes(msg));
+        //}
         public int PushMessage(byte[] msg)
         {
-            if (mbrPooler.CurrentSize == (Config.MaxBufferCount > 0 ? Config.MaxBufferCount : defaultMaxSize))
+            if (mbrPooler.CurrentSize == defaultMaxSize)
             {
                 mbrPooler.Popup();
             }
             MessageFragment m;
             m = new MessageFragment();
-            m.MessageIndex = mbrPooler.NextIndex;
+            m.IDentity = mbrPooler.NextIndex;
             m.Buffer = new byte[msg.Length];
             Buffer.BlockCopy(msg, 0, m.Buffer, 0, msg.Length);
+            //lock (mbrPooler)
+            //{
+            Debuger.DebugInfo("mbrPooler.Count:" + mbrPooler.CurrentSize.ToString());
             return mbrPooler.Pushin(m);
+            //}
         }
         public MessageFragment GetMessage()
         {
-            return mbrPooler.Popup();
+            //lock (mbrPooler)
+            //{
+                return mbrPooler.Popup();
+            //}
         }
         #endregion
         internal void ForceClose()

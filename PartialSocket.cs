@@ -8,7 +8,7 @@ namespace AsyncSocketer
 {
     public class PartialSocket : EventSocketer
     {
-        private EventPool mbrEventConnector, mbrEventSender, mbrEventRecevicer;
+        private EventPool mbrEventConnector, mbrEventSender, mbrEventRecevicer, mbrEventDisconnector;
         private BufferManager mbrBufferConnector, mbrBufferSender, mbrBufferRecevicer;
         protected PartialSocket()
         {
@@ -23,6 +23,18 @@ namespace AsyncSocketer
             //mbrEventConnector = new EventPool(Config.MaxDataConnection);
             //mbrEventRecevicer = new EventPool(Config.MaxDataConnection);
             //mbrEventSender = new EventPool(3);
+        }
+        protected override ISocketer CreateClientSocket()
+        {
+            if (Config.Protocol == ProtocolType.Tcp)
+            {
+                return new TcpSocketer(Config);
+            }
+            else if (Config.Protocol == ProtocolType.Udp)
+            {
+                return new UdpSocketer(Config);
+            }
+            return base.CreateClientSocket();
         }
         protected override SocketAsyncEventArgs GetConnectAsyncEvents()
         {
@@ -149,6 +161,48 @@ namespace AsyncSocketer
                 mbrBufferSender = new BufferManager(Config.MaxDataConnection);
             }
             return mbrBufferSender;
+        }
+        protected override SocketAsyncEventArgs GetDisconnectAsyncEvents()
+        {
+            if (mbrEventDisconnector == null)
+            {
+                mbrEventDisconnector = new EventPool(Config.MaxDataConnection);
+                for (int i = 0; i < Config.MaxDataConnection; i++)
+                {
+                    SocketAsyncEventArgs e = new SocketAsyncEventArgs();
+                    e.RemoteEndPoint = Config.RemotePoint;
+                    e.UserToken = new EventToken(mbrEventDisconnector.NextTokenID, Config);
+                    e.Completed += (o, x) =>
+                    {
+                        if (x.SocketError != SocketError.Success)
+                        {
+                            OnError(x);
+                            if (!Config.OnErrorContinue)
+                            {
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            OnDisconnected(x);
+                        }
+                        GetConnectBuffer().FreeBuffer(x);
+                        mbrEventDisconnector.Push(x);
+                    };
+                    GetConnectBuffer().SetBuffer(e);
+                    GetConnectBuffer().SetBuffer(e, 4);
+                    mbrEventDisconnector.Push(e);
+                }
+            }
+            return mbrEventDisconnector.Pop(Config);
+        }
+        protected override BufferManager GetDisonnectBuffer()
+        {
+            if (mbrBufferConnector == null)
+            {
+                mbrBufferConnector = new BufferManager(Config.ConnectCount);
+            }
+            return mbrBufferConnector;
         }
     }
 }

@@ -38,7 +38,7 @@ namespace AsyncSocketer
                     {
                         (o as SocketErrorHandler)(this, (e as SocketErrorArgs));
                     }
-                    else if(evt == evtPerformance)
+                    else if (evt == evtPerformance)
                     {
                         (o as SocketPerformanceHandler)(this, (e as PerformanceCountArgs));
                     }
@@ -94,7 +94,7 @@ namespace AsyncSocketer
         {
             set
             {
-                if (mbrPerformanceEnabled==value)
+                if (mbrPerformanceEnabled == value)
                 {
                     return;
                 }
@@ -121,7 +121,7 @@ namespace AsyncSocketer
         public bool Connedted { get { return ClientSocket.Connected; } }
         public virtual int PreparSendMessage(byte[] msg) { return OutMessage.PushMessage(msg); }
         public virtual int PreparSendMessage(string msg) { return OutMessage.PushMessage(msg); }
-        private bool mbrJustSended,mbrJustRecevied;
+        private bool mbrJustSended, mbrJustRecevied;
         protected EventSocketer()
         {
             evtConnecting = new object();

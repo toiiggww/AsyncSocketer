@@ -36,7 +36,7 @@ namespace AsyncSocketer
         public void Reset(MessageFragment msg)
         {
             Reset();
-            MessageID = msg.MessageIndex;
+            MessageID = msg.IDentity;
             byte[] p = msg.Buffer;
             int i = p.Length, l, o;
             while (i > 0)
@@ -44,7 +44,7 @@ namespace AsyncSocketer
                 l = (i - Config.BufferSize > 0 ? Config.BufferSize : i);
                 MessageFragment m = new MessageFragment();
                 m.Buffer = new byte[l];
-                m.MessageIndex = (CurrentIndex++);
+                m.IDentity = (CurrentIndex++);
                 m.IDentity = SessionID;
                 o = p.Length - i;
                 Buffer.BlockCopy(p, o, m.Buffer, 0, l);
@@ -69,7 +69,7 @@ namespace AsyncSocketer
             }
             byte[] r = new byte[l];
             l = 0;
-            byte[][] bs = (from m in Messages orderby m.MessageIndex select m.Buffer).ToArray();
+            byte[][] bs = (from m in Messages orderby m.IDentity select m.Buffer).ToArray();
             for (int i = 0; i < bs.Length; i++)
             {
                 Buffer.BlockCopy(bs[i], 0, r, l, bs[i].Length);
@@ -82,7 +82,7 @@ namespace AsyncSocketer
         {
             MessageFragment m = new MessageFragment();
             m.Buffer = new byte[x.BytesTransferred];
-            m.MessageIndex = (CurrentIndex++);
+            m.IDentity = (CurrentIndex++);
             m.IDentity = SessionID;
             Buffer.BlockCopy(x.Buffer, x.Offset, m.Buffer, 0, x.BytesTransferred);
             Messages.Enqueue(m);
