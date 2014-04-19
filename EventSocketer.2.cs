@@ -1,5 +1,4 @@
 ﻿using System;
-using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -9,7 +8,7 @@ namespace AsyncSocketer
     /// <summary>
     /// This is driverd from http://www.codeproject.com/Articles/83102/C-SocketAsyncEventArgs-High-Performance-Socket-Cod
     /// </summary>
-    public abstract class EventSocketer :PerformanceBase
+    public abstract class EventSocketer : PerformanceBase
     {
         #region EventSystem
         protected object evtConnecting,
@@ -59,6 +58,12 @@ namespace AsyncSocketer
             {
                 OnDisconnected(e);
             }
+            OutMessage.ForceClose();
+            IncommeMessage.ForceClose();
+            ResetConnectAsyncEvents();
+            ResetDisconnectAsyncEvents();
+            ResetReceiveAsyncEvents();
+            ResetSendAsyncEvents();
         }
         #endregion
         protected MessagePool OutMessage { get; private set; }
@@ -70,13 +75,10 @@ namespace AsyncSocketer
         public bool Connected { get { return Config.Protocol == ProtocolType.Tcp ? ClientSocket.Connected : mbrWaitForDisconnect; } }
         public virtual int PreparSendMessage(byte[] msg)
         {
-            //checkRecvSendState();
             return OutMessage.PushMessage(msg);
         }
-        public virtual int PreparSendMessage(string msg) { return OutMessage.PushMessage(Config.Encoding.GetBytes(msg)); }
-        private bool mbrWaitForDisconnect;//, mbrOutOfSendState, mbrOutOfReceviState;
-        //private ManualResetEvent mbrConnectLocker;
-        //private Timer mbrBeginSend, mbrBeginReceived;
+        public virtual int PreparSendMessage(string msg) { return PreparSendMessage(Config.Encoding.GetBytes(msg)); }
+        private bool mbrWaitForDisconnect;
         private Thread mbrSendThread, mbrReceiveThread;
         protected EventSocketer()
         {
@@ -86,7 +88,6 @@ namespace AsyncSocketer
             evtRecevie = new object();
             evtDisconnected = new object();
             evtError = new object();
-            //mbrConnectLocker = new ManualResetEvent(false);
             mbrSendThread = new Thread(new ThreadStart(Send));
             mbrReceiveThread = new Thread(new ThreadStart(Receive));
         }
@@ -95,11 +96,7 @@ namespace AsyncSocketer
         {
             Config = sc;
             OutMessage = new MessagePool();
-            //OutMessage.Config = Config;
             IncommeMessage = new MessagePool();
-            //IncommeMessage.Config = Config;
-            //mbrOutOfSendState = true;
-            //mbrOutOfReceviState = true;
             ClientSocket = CreateClientSocket();
             foreach (IPAddress d in Dns.GetHostEntry(string.Empty).AddressList)
             {
@@ -112,8 +109,18 @@ namespace AsyncSocketer
         }
         private void beginSendRec()
         {
-            mbrSendThread.Start();
-            mbrReceiveThread.Start();
+            try
+            {
+                mbrSendThread.Start();
+                mbrReceiveThread.Start();
+            }
+            catch (Exception e)
+            {
+                SocketErrorArgs r = new SocketErrorArgs();
+                r.Exception = e;
+                r.Message = e.Message;
+                fireEvent(evtError, r);
+            }
         }
         public void StartClient(System.Net.IPAddress iPAddress, int p)
         {
@@ -122,6 +129,15 @@ namespace AsyncSocketer
         }
         public void StartClient()
         {
+            if (
+                mbrSenderLocker == null || string.IsNullOrEmpty(mbrSenderLocker.Trim()) ||
+                mbrReceverLocker == null || string.IsNullOrEmpty(mbrReceverLocker.Trim())
+                )
+            {
+                Random r = new Random();
+                r = new Random(r.Next() * 1000);
+                ClientIdentity = string.Format("DefaultIdnetity_{0}", r.Next() * 10000);
+            }
             fireEvent(evtConnecting, null);
             SocketAsyncEventArgs e = GetConnectAsyncEvents();
             if (Config.SendDataOnConnected)
@@ -161,9 +177,10 @@ namespace AsyncSocketer
                     return;
                 }
             }
+            int T = e.BytesTransferred;
+            DebugInfo("OnSended:_" + T.ToString());
             if (mbrPerformanceEnabled)
             {
-                int T = e.BytesTransferred;
                 mbrPSendB += T;
                 mbrPSendC++;
                 if (mbrPSendM < T)
@@ -173,13 +190,13 @@ namespace AsyncSocketer
                 mbrPSendT++;
                 mbrPSendL += T;
             }
-            Debuger.DebugInfo("OutMessage.Count:" + OutMessage.Count.ToString());
             SocketEventArgs a = new SocketEventArgs(e);
             fireEvent(evtSend, a);
         }
         protected virtual void OnReceived(SocketAsyncEventArgs e)
         {
             int T = e.BytesTransferred;
+            DebugInfo("OnReceived:_" + T.ToString());
             if (T > 0)
             {
                 SocketEventArgs a = new SocketEventArgs(e);
@@ -211,8 +228,6 @@ namespace AsyncSocketer
             SocketEventArgs a = new SocketEventArgs(e);
             fireEvent(evtConnected, a);
             mbrWaitForDisconnect = (e.ConnectSocket == null ? false : e.ConnectSocket.Connected);
-            //checkRecvSendState();
-            //mbrConnectLocker.Set();
             beginSendRec();
         }
         protected virtual void OnError(SocketAsyncEventArgs x)
@@ -270,9 +285,22 @@ namespace AsyncSocketer
             }
             Monitor.Exit(mbrSenderLocker);
         }
+        protected virtual void ResetConnectAsyncEvents() { }
+        protected virtual void ResetReceiveAsyncEvents() { }
+        protected virtual void ResetSendAsyncEvents() { }
+        protected virtual void ResetDisconnectAsyncEvents() { }
+#if DEBUG
+        protected virtual int EventPoolerSizeConnect { get; private set; }
+        protected virtual int EventPoolerSizeSend { get; private set; }
+        protected virtual int EventPoolerSizeReceive { get; private set; }
+        protected virtual int MessagePoolerSizeReceive { get; private set; }
+        protected virtual int MessagePoolerSizeSend { get; private set; }
+#endif
         protected void DebugInfo(object o)
         {
-            Debuger.DebugInfo(o);
+#if DEBUG
+            Debuger.DebugInfo(string.Format("msg:[{0}],EventPoolerSizeConnect:[{1}],EventPoolerSizeReceive:[{2}],EventPoolerSizeSend:[{3}],MessagePoolerSizeReceive:[{4}],MessagePoolerSizeSend:[{5}]", o, EventPoolerSizeConnect, EventPoolerSizeReceive, EventPoolerSizeSend, MessagePoolerSizeReceive, MessagePoolerSizeSend));
+#endif
         }
     }
     public class Debuger
@@ -336,6 +364,7 @@ namespace AsyncSocketer
         public static string FormatArrayMatrix(byte[] array)
         {
             string r = "";
+#if DEBUG
             string b = "", s = "";
             r = string.Format("{0}{1}Index \\ Offset  ", r, Environment.NewLine);
             int i = 0, j = 0;
@@ -370,6 +399,7 @@ namespace AsyncSocketer
                     r = string.Format("{0}{1:X11}_ |  {2}  {3:50}{4}", r, k, b, s, Environment.NewLine);
                 }
             }
+#endif
             return r;
         }
     }

@@ -27,10 +27,6 @@ namespace AsyncSocketer
         public int Count { get { return mbrPooler.CurrentSize; } }
         #region Messager
         private Pooler<MessageFragment> mbrPooler;
-        //public int PushMessage(string msg)
-        //{
-        //    return PushMessage(Config.Encoding.GetBytes(msg));
-        //}
         public int PushMessage(byte[] msg)
         {
             if (mbrPooler.CurrentSize == defaultMaxSize)
@@ -42,18 +38,11 @@ namespace AsyncSocketer
             m.IDentity = mbrPooler.NextIndex;
             m.Buffer = new byte[msg.Length];
             Buffer.BlockCopy(msg, 0, m.Buffer, 0, msg.Length);
-            //lock (mbrPooler)
-            //{
-            Debuger.DebugInfo("mbrPooler.Count:" + mbrPooler.CurrentSize.ToString());
             return mbrPooler.Pushin(m);
-            //}
         }
         public MessageFragment GetMessage()
         {
-            //lock (mbrPooler)
-            //{
-                return mbrPooler.Popup();
-            //}
+            return mbrPooler.Popup();
         }
         #endregion
         internal void ForceClose()

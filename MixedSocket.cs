@@ -21,8 +21,6 @@ namespace AsyncSocketer
             }
             SocketBuffer = new BufferManager(Config.MaxDataConnection);
             SocketPooler = new EventPool(Config.MaxDataConnection);
-            //IncommeMessage.Config = Config;
-            //OutMessage.Config = Config;
             for (int i = 0; i < Config.MaxDataConnection; i++)
             {
                 SocketPooler.Push(NewSocket());
@@ -33,7 +31,6 @@ namespace AsyncSocketer
         private SocketAsyncEventArgs NewSocket()
         {
             SocketAsyncEventArgs e = new SocketAsyncEventArgs();
-            //e.RemoteEndPoint = Config.RemotePoint;
             e.UserToken = new EventToken(SocketPooler.NextTokenID, Config);
             SocketBuffer.SetBuffer(e);
             e.Completed += (o, x) =>
@@ -53,10 +50,6 @@ namespace AsyncSocketer
                         }
                     }
                     SocketEventArgs a = new SocketEventArgs(x);
-                    //a.SocketStatus = x.SocketError;
-                    //a.Remoter = x.RemoteEndPoint;
-                    //a.Buffer = new byte[x.BytesTransferred];
-                    //Buffer.BlockCopy(x.Buffer, 0, a.Buffer, 0, x.BytesTransferred);
                     EventToken t = x.UserToken as EventToken;
                     if (x.LastOperation == SocketAsyncOperation.Connect)
                     {

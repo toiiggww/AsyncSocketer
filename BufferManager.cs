@@ -7,7 +7,6 @@ namespace AsyncSocketer
 {
     public class BufferManager
     {
-        //public const int PageSize = 8192;
         public int Bytes { get; private set; }
         public byte[] Buffer { get; private set; }
         public Stack<int> BufferIndex { get; private set; }
@@ -17,7 +16,6 @@ namespace AsyncSocketer
             : this()
         {
             Bytes = bytes;
-            //BufferSize = size;
         }
         public BufferManager(int instance)
             : this()
@@ -28,7 +26,6 @@ namespace AsyncSocketer
         {
             BufferIndex = new Stack<int>();
             Index = 0;
-            //BufferSize = PageSize;
         }
         public bool SetBuffer(System.Net.Sockets.SocketAsyncEventArgs e)
         {
@@ -36,8 +33,6 @@ namespace AsyncSocketer
         }
         public bool SetBuffer(System.Net.Sockets.SocketAsyncEventArgs e, int size)
         {
-            //e.SetBuffer(null, 0, 0);
-            FreeBuffer(e);
             if (Buffer == null)
             {
                 Buffer = new byte[Bytes];
@@ -48,7 +43,7 @@ namespace AsyncSocketer
             }
             else
             {
-                if (Bytes - size < Index)
+                if (Index + size > Bytes)
                 {
                     return false;
                 }
@@ -76,5 +71,7 @@ namespace AsyncSocketer
             }
             System.Buffer.BlockCopy(b, 0, Buffer, ex.Offset, o);
         }
+
+        public int Count { get { return 0 - BufferIndex.Count; } }
     }
 }

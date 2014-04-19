@@ -204,5 +204,28 @@ namespace AsyncSocketer
             }
             return mbrBufferConnector;
         }
+        protected override void ResetConnectAsyncEvents()
+        {
+            mbrEventConnector.ForceClose();
+        }
+        protected override void ResetDisconnectAsyncEvents()
+        {
+            mbrEventDisconnector.ForceClose();
+        }
+        protected override void ResetReceiveAsyncEvents()
+        {
+            mbrEventRecevicer.ForceClose();
+        }
+        protected override void ResetSendAsyncEvents()
+        {
+            mbrEventSender.ForceClose();
+        }
+#if DEBUG
+        protected override int EventPoolerSizeConnect { get { return mbrEventDisconnector == null ? -1 : mbrEventConnector.Count; } }
+        protected override int EventPoolerSizeReceive { get { return mbrEventRecevicer == null ? -1 : mbrEventRecevicer.Count; } }
+        protected override int EventPoolerSizeSend { get { return mbrEventSender == null ? -1 : mbrEventSender.Count; } }
+        protected override int MessagePoolerSizeReceive { get { return mbrBufferRecevicer == null ? -1 : mbrBufferRecevicer.Count; } }
+        protected override int MessagePoolerSizeSend { get { return mbrBufferSender == null ? -1 : mbrBufferSender.Count; } }
+#endif
     }
 }

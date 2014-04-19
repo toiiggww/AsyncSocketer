@@ -33,6 +33,7 @@ namespace AsyncSocketer
         {
             mbrPooler.AbortWait();
         }
+        public int Count { get { return mbrPooler.CurrentSize; } }
     }
     class EventArgObject : IDentity
     {

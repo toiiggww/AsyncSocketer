@@ -10,7 +10,6 @@ namespace AsyncSocketer
         public int SessionID { get; private set; }
         public int CurrentIndex { get; private set; }
         public int MessageID { get; set; }
-        //public bool ForceReceive { get; set; }
         private Queue<MessageFragment> Messages { get; set; }
         public SocketConfigure Config { get; private set; }
         public EventToken(int id, SocketConfigure cfg)

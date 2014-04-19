@@ -61,21 +61,19 @@ namespace AsyncSocketer
         public int PerformanceInMin { get; set; }
         public int PerformanceAfterLimit { get; set; }
         public event SocketPerformanceHandler Performance { add { base.Events.AddHandler(evtPerformance, value); } remove { base.Events.RemoveHandler(evtPerformance, value); } }
-        protected int 
-            mbrPImsgC,
-            mbrPOmsgC,
-            mbrPSendC,  // Send Count
+        protected int
+            mbrPImsgC,          // IncommeMessage Count
+            mbrPOmsgC,          // OutMessage Count
+            mbrPSendC,          // Send Count
             mbrPSendB,          // Bytes
             mbrPSendT,          // Total Count
             mbrPSendM,          // Max Package length
             mbrPSendL,          // Total Bytes
-            mbrPSendI,          // In OutMessage Count
             mbrPReceiveC,       // Receve Count
             mbrPReceiveB,       // Bytes
             mbrPReceiveT,       // Total Count
             mbrPReceiveM,       // Max Package length
             mbrPReceiveL,       // Total Bytes
-            mbrPReceiveI,       // In IncommeMessage Count
             mbrPConT,           // Total Connect
             mbrPConF,           // Connect fail
             mbrPDisC,           // Disconnect
