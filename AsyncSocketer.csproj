@@ -58,7 +58,9 @@
     <Compile Include="MixedSocket.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="PartialSocketServer.cs" />
+    <Compile Include="PartialSocketServer.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="PerformanceBase.cs">
       <SubType>Component</SubType>
     </Compile>

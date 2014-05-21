@@ -39,23 +39,24 @@ namespace AsyncSocketer
             }
             if (BufferIndex.Count > 0)
             {
-                e.SetBuffer(Buffer, BufferIndex.Pop(), size);
+                e.SetBuffer(Buffer, BufferIndex.Pop(), BufferSize);
             }
             else
             {
-                if (Index + size > Bytes)
+                if (Index + BufferSize > Bytes)
                 {
                     return false;
                 }
-                e.SetBuffer(Buffer, Index, size);
-                Index += size;
+                e.SetBuffer(Buffer, Index, 20);
+                Index += BufferSize;
             }
             return true;
         }
         public void FreeBuffer(System.Net.Sockets.SocketAsyncEventArgs e)
         {
             BufferIndex.Push(e.Offset);
-            e.SetBuffer(null, 0, 0);
+            //e.SetBuffer(null, 0, 0);
+            //SetBuffer(e, 1);
         }
 
         internal void Copy(byte[] b, System.Net.Sockets.SocketAsyncEventArgs ex)

@@ -116,11 +116,11 @@ namespace AsyncSocketer
                 }
             }
         }
-        public int ConnectCount { get; set; }
+        public int MaxConnectCount { get; set; }
         public int TimeOut { get; set; }
         public int BufferSize { get; set; }
         public int BufferShard { get; set; }
-        public int MaxBufferCount { get; set; }
+        //public int MaxBufferCount { get; set; }
         public int MaxDataConnection { get; set; }
         public int ListenPort { get; set; }
         public bool OnErrorContinue { get; set; }
@@ -134,8 +134,8 @@ namespace AsyncSocketer
             MaxDataConnection = 32;
             BufferSize = 4916;
             OnErrorContinue = true;
-            ConnectCount = 3;
-            MaxBufferCount = 1024;
+            MaxConnectCount = 3;
+            //MaxBufferCount = 1024;
             mbrPort = int.MinValue;
             SendDataOnConnected = true;
             ListenPort = 0;

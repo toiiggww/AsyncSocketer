@@ -24,6 +24,40 @@ namespace AsyncSocketer
             //mbrEventRecevicer = new EventPool(Config.MaxDataConnection);
             //mbrEventSender = new EventPool(3);
         }
+        private EventPool InitEventPooler(EventPool pooler, BufferManager buffers, int length, SocketEvents fun)
+        {
+            if (pooler == null)
+            {
+                pooler = new EventPool(length);
+                for (int i = 0; i < length; i++)
+                {
+                    SocketAsyncEventArgs e = new SocketAsyncEventArgs();
+                    e.RemoteEndPoint = Config.RemotePoint;
+                    e.UserToken = new EventToken(pooler.NextTokenID, Config);
+                    e.Completed += (o, x) =>
+                    {
+                        if (x.SocketError != SocketError.Success)
+                        {
+                            OnError(x);
+                            if (!Config.OnErrorContinue)
+                            {
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            fun(x);
+                        }
+                        buffers.FreeBuffer(x);
+                        pooler.Push(x);
+                    };
+                    //buffers.SetBuffer(e);
+                    //GetConnectBuffer().SetBuffer(e, 4);
+                    pooler.Push(e);
+                }
+            }
+            return pooler;
+        }
         protected override ISocketer CreateClientSocket()
         {
             if (Config.Protocol == ProtocolType.Tcp)
@@ -38,79 +72,89 @@ namespace AsyncSocketer
         }
         protected override SocketAsyncEventArgs GetConnectAsyncEvents()
         {
-            if (mbrEventConnector == null)
-            {
-                mbrEventConnector = new EventPool(Config.MaxDataConnection);
-                for (int i = 0; i < Config.MaxDataConnection; i++)
-                {
-                    SocketAsyncEventArgs e = new SocketAsyncEventArgs();
-                    e.RemoteEndPoint = Config.RemotePoint;
-                    e.UserToken = new EventToken(mbrEventConnector.NextTokenID, Config);
-                    e.Completed += (o, x) =>
-                        {
-                            if (x.SocketError != SocketError.Success)
-                            {
-                                OnError(x);
-                                if (!Config.OnErrorContinue)
-                                {
-                                    return;
-                                }
-                            }
-                            else
-                            {
-                                OnConnected(x);
-                            }
-                            GetConnectBuffer().FreeBuffer(x);
-                            mbrEventConnector.Push(x);
-                        };
-                    GetConnectBuffer().SetBuffer(e);
-                    GetConnectBuffer().SetBuffer(e, 4);
-                    mbrEventConnector.Push(e);
-                }
-            }
-            return mbrEventConnector.Pop(Config);
+            SocketAsyncEventArgs s = InitEventPooler(mbrEventConnector, GetConnectBuffer(), Config.MaxConnectCount, OnConnected).Pop(Config);
+            #region ///
+            //if (mbrEventConnector == null)
+            //{
+            //    mbrEventConnector = new EventPool(Config.MaxDataConnection);
+            //    for (int i = 0; i < Config.MaxDataConnection; i++)
+            //    {
+            //        SocketAsyncEventArgs e = new SocketAsyncEventArgs();
+            //        e.RemoteEndPoint = Config.RemotePoint;
+            //        e.UserToken = new EventToken(mbrEventConnector.NextTokenID, Config);
+            //        e.Completed += (o, x) =>
+            //            {
+            //                if (x.SocketError != SocketError.Success)
+            //                {
+            //                    OnError(x);
+            //                    if (!Config.OnErrorContinue)
+            //                    {
+            //                        return;
+            //                    }
+            //                }
+            //                else
+            //                {
+            //                    OnConnected(x);
+            //                }
+            //                GetConnectBuffer().FreeBuffer(x);
+            //                mbrEventConnector.Push(x);
+            //            };
+            //        GetConnectBuffer().SetBuffer(e);
+            //        //GetConnectBuffer().SetBuffer(e, 4);
+            //        mbrEventConnector.Push(e);
+            //    }
+            //}
+            //s = mbrEventConnector.Pop(Config);
+            //GetConnectBuffer().SetBuffer(s);
+            #endregion
+            return s;
         }
         protected override BufferManager GetConnectBuffer()
         {
             if (mbrBufferConnector == null)
             {
-                mbrBufferConnector = new BufferManager(Config.ConnectCount);
+                mbrBufferConnector = new BufferManager(Config.MaxConnectCount);
             }
             return mbrBufferConnector;
         }
         protected override SocketAsyncEventArgs GetReceiveAsyncEvents()
         {
-            if (mbrEventRecevicer == null)
-            {
-                mbrEventRecevicer = new EventPool(Config.MaxDataConnection);
-                for (int i = 0; i < Config.MaxDataConnection; i++)
-                {
-                    SocketAsyncEventArgs e = new SocketAsyncEventArgs();
-                    e.RemoteEndPoint = Config.RemotePoint;
-                    e.UserToken = new EventToken(mbrEventRecevicer.NextTokenID, Config);
-                    e.Completed += (o, x) =>
-                    {
-                        if (x.SocketError != SocketError.Success)
-                        {
-                            OnError(x);
-                            if (!Config.OnErrorContinue)
-                            {
-                                return;
-                            }
-                        }
-                        else
-                        {
-                            OnReceived(x);
-                        }
-                        GetRecevieBuffer().FreeBuffer(x);
-                        mbrEventRecevicer.Push(x);
-                    };
-                    GetRecevieBuffer().SetBuffer(e);
-                    GetRecevieBuffer().SetBuffer(e, 5);
-                    mbrEventRecevicer.Push(e);
-                }
-            }
-            return mbrEventRecevicer.Pop(Config);
+            SocketAsyncEventArgs s = InitEventPooler(mbrEventRecevicer, GetRecevieBuffer(), Config.MaxDataConnection, OnReceived).Pop(Config);
+            #region ///
+            //if (mbrEventRecevicer == null)
+            //{
+            //    mbrEventRecevicer = new EventPool(Config.MaxDataConnection);
+            //    for (int i = 0; i < Config.MaxDataConnection; i++)
+            //    {
+            //        SocketAsyncEventArgs e = new SocketAsyncEventArgs();
+            //        e.RemoteEndPoint = Config.RemotePoint;
+            //        e.UserToken = new EventToken(mbrEventRecevicer.NextTokenID, Config);
+            //        e.Completed += (o, x) =>
+            //        {
+            //            if (x.SocketError != SocketError.Success)
+            //            {
+            //                OnError(x);
+            //                if (!Config.OnErrorContinue)
+            //                {
+            //                    return;
+            //                }
+            //            }
+            //            else
+            //            {
+            //                OnReceived(x);
+            //            }
+            //            GetRecevieBuffer().FreeBuffer(x);
+            //            mbrEventRecevicer.Push(x);
+            //        };
+            //        GetRecevieBuffer().SetBuffer(e);
+            //        //GetRecevieBuffer().SetBuffer(e, 5);
+            //        mbrEventRecevicer.Push(e);
+            //    }
+            //}
+            //s = mbrEventRecevicer.Pop(Config);
+            //GetConnectBuffer().SetBuffer(s);
+            #endregion
+            return s;
         }
         protected override BufferManager GetRecevieBuffer()
         {
@@ -122,37 +166,42 @@ namespace AsyncSocketer
         }
         protected override SocketAsyncEventArgs GetSendAsyncEvents()
         {
-            if (mbrEventSender == null)
-            {
-                mbrEventSender = new EventPool(Config.MaxDataConnection);
-                for (int i = 0; i < Config.MaxDataConnection; i++)
-                {
-                    SocketAsyncEventArgs e = new SocketAsyncEventArgs();
-                    e.RemoteEndPoint = Config.RemotePoint;
-                    e.UserToken = new EventToken(mbrEventSender.NextTokenID, Config);
-                    e.Completed += (o, x) =>
-                    {
-                        if (x.SocketError != SocketError.Success)
-                        {
-                            OnError(x);
-                            if (!Config.OnErrorContinue)
-                            {
-                                return;
-                            }
-                        }
-                        else
-                        {
-                            OnSended(x);
-                        }
-                        GetSendBuffer().FreeBuffer(x);
-                        mbrEventSender.Push(x);
-                    };
-                    GetSendBuffer().SetBuffer(e);
-                    GetSendBuffer().SetBuffer(e, 3);
-                    mbrEventSender.Push(e);
-                }
-            }
-            return mbrEventSender.Pop(Config);
+            SocketAsyncEventArgs s = InitEventPooler(mbrEventSender, GetSendBuffer(), Config.MaxDataConnection, OnSended).Pop(Config);
+            #region ///
+            //if (mbrEventSender == null)
+            //{
+            //    mbrEventSender = new EventPool(Config.MaxDataConnection);
+            //    for (int i = 0; i < Config.MaxDataConnection; i++)
+            //    {
+            //        SocketAsyncEventArgs e = new SocketAsyncEventArgs();
+            //        e.RemoteEndPoint = Config.RemotePoint;
+            //        e.UserToken = new EventToken(mbrEventSender.NextTokenID, Config);
+            //        e.Completed += (o, x) =>
+            //        {
+            //            if (x.SocketError != SocketError.Success)
+            //            {
+            //                OnError(x);
+            //                if (!Config.OnErrorContinue)
+            //                {
+            //                    return;
+            //                }
+            //            }
+            //            else
+            //            {
+            //                OnSended(x);
+            //            }
+            //            GetSendBuffer().FreeBuffer(x);
+            //            mbrEventSender.Push(x);
+            //        };
+            //        GetSendBuffer().SetBuffer(e);
+            //        //GetSendBuffer().SetBuffer(e, 3);
+            //        mbrEventSender.Push(e);
+            //    }
+            //}
+            //s = mbrEventSender.Pop(Config);
+            //GetConnectBuffer().SetBuffer(s);
+            #endregion
+            return s;
         }
         protected override BufferManager GetSendBuffer()
         {
@@ -164,61 +213,78 @@ namespace AsyncSocketer
         }
         protected override SocketAsyncEventArgs GetDisconnectAsyncEvents()
         {
-            if (mbrEventDisconnector == null)
-            {
-                mbrEventDisconnector = new EventPool(Config.MaxDataConnection);
-                for (int i = 0; i < Config.MaxDataConnection; i++)
-                {
-                    SocketAsyncEventArgs e = new SocketAsyncEventArgs();
-                    e.RemoteEndPoint = Config.RemotePoint;
-                    e.UserToken = new EventToken(mbrEventDisconnector.NextTokenID, Config);
-                    e.Completed += (o, x) =>
-                    {
-                        if (x.SocketError != SocketError.Success)
-                        {
-                            OnError(x);
-                            if (!Config.OnErrorContinue)
-                            {
-                                return;
-                            }
-                        }
-                        else
-                        {
-                            OnDisconnected(x);
-                        }
-                        GetConnectBuffer().FreeBuffer(x);
-                        mbrEventDisconnector.Push(x);
-                    };
-                    GetConnectBuffer().SetBuffer(e);
-                    GetConnectBuffer().SetBuffer(e, 4);
-                    mbrEventDisconnector.Push(e);
-                }
-            }
-            return mbrEventDisconnector.Pop(Config);
+            SocketAsyncEventArgs s = InitEventPooler(mbrEventDisconnector, GetDisonnectBuffer(), Config.MaxConnectCount, OnDisconnected).Pop(Config);
+            #region ///
+            //if (mbrEventDisconnector == null)
+            //{
+            //    mbrEventDisconnector = new EventPool(Config.MaxDataConnection);
+            //    for (int i = 0; i < Config.MaxDataConnection; i++)
+            //    {
+            //        SocketAsyncEventArgs e = new SocketAsyncEventArgs();
+            //        e.RemoteEndPoint = Config.RemotePoint;
+            //        e.UserToken = new EventToken(mbrEventDisconnector.NextTokenID, Config);
+            //        e.Completed += (o, x) =>
+            //        {
+            //            if (x.SocketError != SocketError.Success)
+            //            {
+            //                OnError(x);
+            //                if (!Config.OnErrorContinue)
+            //                {
+            //                    return;
+            //                }
+            //            }
+            //            else
+            //            {
+            //                OnDisconnected(x);
+            //            }
+            //            GetConnectBuffer().FreeBuffer(x);
+            //            mbrEventDisconnector.Push(x);
+            //        };
+            //        GetConnectBuffer().SetBuffer(e);
+            //        //GetConnectBuffer().SetBuffer(e, 4);
+            //        mbrEventDisconnector.Push(e);
+            //    }
+            //}
+            //s = mbrEventDisconnector.Pop(Config);
+            //GetConnectBuffer().SetBuffer(s);
+            #endregion
+            return s;
         }
         protected override BufferManager GetDisonnectBuffer()
         {
             if (mbrBufferConnector == null)
             {
-                mbrBufferConnector = new BufferManager(Config.ConnectCount);
+                mbrBufferConnector = new BufferManager(Config.MaxConnectCount);
             }
             return mbrBufferConnector;
         }
         protected override void ResetConnectAsyncEvents()
         {
-            mbrEventConnector.ForceClose();
+            if (mbrEventConnector != null)
+            {
+                mbrEventConnector.ForceClose();
+            }
         }
         protected override void ResetDisconnectAsyncEvents()
         {
-            mbrEventDisconnector.ForceClose();
+            if (mbrEventDisconnector != null)
+            {
+                mbrEventDisconnector.ForceClose();
+            }
         }
         protected override void ResetReceiveAsyncEvents()
         {
-            mbrEventRecevicer.ForceClose();
+            if (mbrEventRecevicer != null)
+            {
+                mbrEventRecevicer.ForceClose();
+            }
         }
         protected override void ResetSendAsyncEvents()
         {
-            mbrEventSender.ForceClose();
+            if (mbrEventSender != null)
+            {
+                mbrEventSender.ForceClose();
+            }
         }
 #if DEBUG
         protected override int EventPoolerSizeConnect { get { return mbrEventDisconnector == null ? -1 : mbrEventConnector.Count; } }

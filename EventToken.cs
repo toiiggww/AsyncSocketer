@@ -10,6 +10,7 @@ namespace AsyncSocketer
         public int SessionID { get; private set; }
         public int CurrentIndex { get; private set; }
         public int MessageID { get; set; }
+        public int EventID { get; set; }
         private Queue<MessageFragment> Messages { get; set; }
         public SocketConfigure Config { get; private set; }
         public EventToken(int id, SocketConfigure cfg)
@@ -76,7 +77,10 @@ namespace AsyncSocketer
             }
             return r;
         }
-
+        public override string ToString()
+        {
+            return string.Format("SessionID:[{0}],CurrentIndex:[{1}],MessageID:[{2}],EventID:[{3}]{4}", SessionID, CurrentIndex, MessageID, EventID, Environment.NewLine);
+        }
         internal void Next(System.Net.Sockets.SocketAsyncEventArgs x)
         {
             MessageFragment m = new MessageFragment();

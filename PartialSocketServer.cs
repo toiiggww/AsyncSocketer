@@ -14,13 +14,13 @@ namespace AsyncSocketer
         public event ServerSocketEventHandler Accepted { add { base.Events.AddHandler(evtAccepted, value); } remove { base.Events.RemoveHandler(evtAccepted, value); } }
         protected virtual void OnBeginAccept(SocketAsyncEventArgs e)
         {
-            SocketEventArgs a = new SocketEventArgs(e);
-            fireEvent(evtBeginAccept, a);
+            //SocketAsyncEventArgs a = new SocketAsyncEventArgs(e);
+            fireEvent(evtBeginAccept, e);
         }
         protected virtual void OnAccepted(SocketAsyncEventArgs e)
         {
-            ServerSocketEventArgs a = new ServerSocketEventArgs(e);
-            fireEvent(evtAccepted, a);
+            //ServerSocketEventArgs a = new ServerSocketEventArgs(e);
+            fireEvent(evtAccepted, e);
         }
         private EventPool mbrAcceptEventer;
         private BufferManager mbrAcceptBuffer;

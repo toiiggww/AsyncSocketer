@@ -45,11 +45,32 @@ namespace AsyncSocketer
         public virtual void Connect(System.Net.IPAddress iPAddress, int p)
         {
             Config.RemotePoint = new IPEndPoint(iPAddress, p);
-            StartClient();
+            Connect();
         }
         public virtual void Connect()
         {
-            StartClient();
+            if (
+                mbrSenderLocker == null || string.IsNullOrEmpty(mbrSenderLocker.Trim()) ||
+                mbrReceverLocker == null || string.IsNullOrEmpty(mbrReceverLocker.Trim())
+                )
+            {
+                Random r = new Random();
+                r = new Random(r.Next() * 1000);
+                ClientIdentity = string.Format("DefaultIdnetity_{0}", r.Next() * 10000);
+            }
+            fireEvent(evtConnecting, null);
+            SocketAsyncEventArgs e = GetConnectAsyncEvents();
+            if (Config.SendDataOnConnected)
+            {
+                MessageFragment m = OutMessage.GetMessage();
+                (e.UserToken as EventToken).MessageID = m.IDentity;
+                GetSendBuffer().SetBuffer(e, m.Buffer.Length);
+                Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, m.Buffer.Length);
+            }
+            if (!ClientSocket.Connect(e))
+            {
+                OnConnected(e);
+            }
         }
         public virtual void Disconnect()
         {
@@ -64,6 +85,11 @@ namespace AsyncSocketer
             ResetDisconnectAsyncEvents();
             ResetReceiveAsyncEvents();
             ResetSendAsyncEvents();
+        }
+        public virtual void ReConnect()
+        {
+            Disconnect();
+            Connect();
         }
         #endregion
         protected MessagePool OutMessage { get; private set; }
@@ -122,41 +148,6 @@ namespace AsyncSocketer
                 fireEvent(evtError, r);
             }
         }
-        public void StartClient(System.Net.IPAddress iPAddress, int p)
-        {
-            Config.RemotePoint = new System.Net.IPEndPoint(iPAddress, p);
-            StartClient();
-        }
-        public void StartClient()
-        {
-            if (
-                mbrSenderLocker == null || string.IsNullOrEmpty(mbrSenderLocker.Trim()) ||
-                mbrReceverLocker == null || string.IsNullOrEmpty(mbrReceverLocker.Trim())
-                )
-            {
-                Random r = new Random();
-                r = new Random(r.Next() * 1000);
-                ClientIdentity = string.Format("DefaultIdnetity_{0}", r.Next() * 10000);
-            }
-            fireEvent(evtConnecting, null);
-            SocketAsyncEventArgs e = GetConnectAsyncEvents();
-            if (Config.SendDataOnConnected)
-            {
-                MessageFragment m = OutMessage.GetMessage();
-                (e.UserToken as EventToken).MessageID = m.IDentity;
-                GetSendBuffer().SetBuffer(e, m.Buffer.Length);
-                Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, m.Buffer.Length);
-            }
-            if (!ClientSocket.Connect(e))
-            {
-                OnConnected(e);
-            }
-        }
-        public virtual void ReConnect()
-        {
-            ClientSocket.Shutdown(SocketShutdown.Both);
-            StartClient();
-        }
         protected virtual ISocketer CreateClientSocket() { throw new NotImplementedException(); }
         protected virtual SocketAsyncEventArgs GetConnectAsyncEvents() { throw new NotImplementedException(); }
         protected virtual SocketAsyncEventArgs GetReceiveAsyncEvents() { throw new NotImplementedException(); }
@@ -178,7 +169,7 @@ namespace AsyncSocketer
                 }
             }
             int T = e.BytesTransferred;
-            DebugInfo("OnSended:_" + T.ToString());
+            DebugInfo(string.Format("[{0}]_OnSended:_[{1}]_", e.UserToken, T));
             if (mbrPerformanceEnabled)
             {
                 mbrPSendB += T;
@@ -196,7 +187,7 @@ namespace AsyncSocketer
         protected virtual void OnReceived(SocketAsyncEventArgs e)
         {
             int T = e.BytesTransferred;
-            DebugInfo("OnReceived:_" + T.ToString());
+            DebugInfo(string.Format("[{0}]_OnReceived:_[{1}]_", e.UserToken, T));
             if (T > 0)
             {
                 SocketEventArgs a = new SocketEventArgs(e);
@@ -247,6 +238,7 @@ namespace AsyncSocketer
             }
             OutMessage.ForceClose();
             mbrWaitForDisconnect = false;
+            ClientSocket.Shutdown(SocketShutdown.Both);
             SocketEventArgs a = new SocketEventArgs(e);
             fireEvent(evtDisconnected, e);
         }
@@ -261,7 +253,7 @@ namespace AsyncSocketer
                 {
                     OnReceived(e);
                 }
-                DebugInfo("Wait for Receive Compleate");
+                DebugInfo(string.Format("[{0}] _ Wait for Receive Compleate", e.UserToken));
             }
             Monitor.Exit(mbrReceverLocker);
         }
@@ -271,9 +263,9 @@ namespace AsyncSocketer
             while (mbrWaitForDisconnect)
             {
                 SocketAsyncEventArgs e = GetSendAsyncEvents();
-                DebugInfo("Wait for Message");
+                DebugInfo(string.Format("[{0}] _ Wait for Message",e.UserToken));
                 MessageFragment m = OutMessage.GetMessage();
-                DebugInfo("Got Message");
+                DebugInfo(string.Format("[{0}] _ Got Message",e.UserToken));
                 (e.UserToken as EventToken).MessageID = m.IDentity;
                 GetSendBuffer().SetBuffer(e, m.Buffer.Length);
                 Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, m.Buffer.Length);
@@ -281,7 +273,7 @@ namespace AsyncSocketer
                 {
                     OnSended(e);
                 }
-                DebugInfo("Wait for Send Compleate");
+                DebugInfo(string.Format("[{0}] _ Wait for Send Compleate", e.UserToken));
             }
             Monitor.Exit(mbrSenderLocker);
         }
@@ -331,6 +323,7 @@ namespace AsyncSocketer
 #endif
         }
     }
+    internal delegate void SocketEvents(SocketAsyncEventArgs e);
     public delegate void SocketEventHandler(object sender, SocketEventArgs e);
     public delegate void ServerSocketEventHandler(object sender, ServerSocketEventArgs e);
     public delegate void SocketErrorHandler(object sender, SocketErrorArgs e);
@@ -345,8 +338,11 @@ namespace AsyncSocketer
             {
                 SessionID = t.SessionID;
                 MessageIndex = t.MessageID;
-                Buffer = new byte[e.BytesTransferred];
-                System.Buffer.BlockCopy(e.Buffer, e.Offset, Buffer, 0, e.BytesTransferred);
+                if (e.BytesTransferred > 0)
+                {
+                    Buffer = new byte[e.BytesTransferred];
+                    System.Buffer.BlockCopy(e.Buffer, e.Offset, Buffer, 0, e.BytesTransferred);
+                }
                 Remoter = e.RemoteEndPoint;
             }
         }

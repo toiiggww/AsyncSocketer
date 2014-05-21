@@ -51,6 +51,7 @@ namespace AsyncSocketer
         {
             mbrIDentity = id;
             SocketEventArgs = e;
+            (SocketEventArgs.UserToken as EventToken).EventID = id;
         }
     }
 }

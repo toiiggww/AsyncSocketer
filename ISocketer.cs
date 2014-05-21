@@ -4,6 +4,11 @@ using System.Net.Sockets;
 
 namespace AsyncSocketer
 {
+    //public class SocketAsyncEventArgs : SocketAsyncEventArgs, IDentity
+    //{
+    //    public int IDentity { get; set; }
+    //    public SocketAsyncEventArgs() : base() { }
+    //}
     public abstract class ISocketer
     {
         public ISocketer(SocketConfigure cfg)
