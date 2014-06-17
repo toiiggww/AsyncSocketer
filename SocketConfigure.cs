@@ -122,6 +122,7 @@ namespace AsyncSocketer
         public int BufferShard { get; set; }
         public int MaxDataConnection { get; set; }
         public int ListenPort { get; set; }
+        public int ConnectBufferSize { get; set; }
         public bool OnErrorContinue { get; set; }
         public bool SendDataOnConnected { get; set; }
         public System.Net.Sockets.ProtocolType Protocol { get; set; }
@@ -137,6 +138,7 @@ namespace AsyncSocketer
             mbrPort = int.MinValue;
             SendDataOnConnected = true;
             ListenPort = 0;
+            ConnectBufferSize = 4;
         }
     }
 }

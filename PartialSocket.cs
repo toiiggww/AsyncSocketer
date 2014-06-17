@@ -120,7 +120,7 @@ namespace AsyncSocketer
         {
             if (mbrBufferConnector == null)
             {
-                mbrBufferConnector = new BufferManager(Config.MaxConnectCount,4);
+                mbrBufferConnector = new BufferManager(Config.MaxConnectCount,Config.ConnectBufferSize);
                 mbrBufferConnector.ManagerIdentity = "mbrBufferConnector";
             }
             return mbrBufferConnector;
