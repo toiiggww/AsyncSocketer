@@ -9,7 +9,7 @@ namespace AsyncSocketer
     public class PartialSocket : EventSocketer
     {
         private EventPool mbrEventConnector, mbrEventSender, mbrEventRecevicer, mbrEventDisconnector;
-        private BufferManager mbrBufferConnector, mbrBufferSender, mbrBufferRecevicer;
+        private BufferManager mbrBufferConnector, mbrBufferSender, mbrBufferRecevicer, mbrBufferDisconnector;
         protected PartialSocket()
         {
         }
@@ -24,11 +24,10 @@ namespace AsyncSocketer
             //mbrEventRecevicer = new EventPool(Config.MaxDataConnection);
             //mbrEventSender = new EventPool(3);
         }
-        private EventPool InitEventPooler(EventPool pooler, BufferManager buffers, int length, SocketEvents fun)
+        private void InitEventPooler(EventPool pooler, BufferManager buffers, int length, SocketEvents fun)
         {
-            if (pooler == null)
+            if (pooler != null)
             {
-                pooler = new EventPool(length);
                 for (int i = 0; i < length; i++)
                 {
                     SocketAsyncEventArgs e = new SocketAsyncEventArgs();
@@ -48,15 +47,18 @@ namespace AsyncSocketer
                         {
                             fun(x);
                         }
-                        buffers.FreeBuffer(x);
                         pooler.Push(x);
                     };
-                    //buffers.SetBuffer(e);
-                    //GetConnectBuffer().SetBuffer(e, 4);
-                    pooler.Push(e);
+                    if (buffers.SetBuffer(e))
+                    {
+                        pooler.Push(e);
+                    }
+                    else
+                    {
+                        throw new Exception("SetBuffer");
+                    }
                 }
             }
-            return pooler;
         }
         protected override ISocketer CreateClientSocket()
         {
@@ -70,9 +72,14 @@ namespace AsyncSocketer
             }
             return base.CreateClientSocket();
         }
-        protected override SocketAsyncEventArgs GetConnectAsyncEvents()
+        protected override EventPool GetConnectEventsPooler()
         {
-            SocketAsyncEventArgs s = InitEventPooler(mbrEventConnector, GetConnectBuffer(), Config.MaxConnectCount, OnConnected).Pop(Config);
+            if (mbrEventConnector == null)
+            {
+                mbrEventConnector = new EventPool(Config.MaxConnectCount);
+                mbrEventConnector.PoolerIdentity = mbrReceverLocker + " mbrEventConnector";
+                InitEventPooler(mbrEventConnector, GetConnectBuffer(), Config.MaxConnectCount, OnConnected);
+            }
             #region ///
             //if (mbrEventConnector == null)
             //{
@@ -107,19 +114,25 @@ namespace AsyncSocketer
             //s = mbrEventConnector.Pop(Config);
             //GetConnectBuffer().SetBuffer(s);
             #endregion
-            return s;
+            return mbrEventConnector;
         }
         protected override BufferManager GetConnectBuffer()
         {
             if (mbrBufferConnector == null)
             {
-                mbrBufferConnector = new BufferManager(Config.MaxConnectCount);
+                mbrBufferConnector = new BufferManager(Config.MaxConnectCount,4);
+                mbrBufferConnector.ManagerIdentity = "mbrBufferConnector";
             }
             return mbrBufferConnector;
         }
-        protected override SocketAsyncEventArgs GetReceiveAsyncEvents()
+        protected override EventPool GetReceiveEventsPooler()
         {
-            SocketAsyncEventArgs s = InitEventPooler(mbrEventRecevicer, GetRecevieBuffer(), Config.MaxDataConnection, OnReceived).Pop(Config);
+            if (mbrEventRecevicer == null)
+            {
+                mbrEventRecevicer = new EventPool(Config.MaxDataConnection);
+                mbrEventRecevicer.PoolerIdentity = mbrReceverLocker + " mbrEventRecevicer";
+                InitEventPooler(mbrEventRecevicer, GetRecevieBuffer(), Config.MaxDataConnection, OnReceived);
+            }
             #region ///
             //if (mbrEventRecevicer == null)
             //{
@@ -154,19 +167,25 @@ namespace AsyncSocketer
             //s = mbrEventRecevicer.Pop(Config);
             //GetConnectBuffer().SetBuffer(s);
             #endregion
-            return s;
+            return mbrEventRecevicer;
         }
         protected override BufferManager GetRecevieBuffer()
         {
             if (mbrBufferRecevicer == null)
             {
                 mbrBufferRecevicer = new BufferManager(Config.MaxDataConnection);
+                mbrBufferRecevicer.ManagerIdentity = mbrReceverLocker + " mbrBufferRecevicer";
             }
             return mbrBufferRecevicer;
         }
-        protected override SocketAsyncEventArgs GetSendAsyncEvents()
+        protected override EventPool GetSendEventsPooler()
         {
-            SocketAsyncEventArgs s = InitEventPooler(mbrEventSender, GetSendBuffer(), Config.MaxDataConnection, OnSended).Pop(Config);
+            if (mbrEventSender == null)
+            {
+                mbrEventSender = new EventPool(Config.MaxDataConnection);
+                mbrEventSender.PoolerIdentity = mbrSenderLocker + " mbrEventSender";
+                InitEventPooler(mbrEventSender, GetSendBuffer(), Config.MaxDataConnection, OnSended);
+            }
             #region ///
             //if (mbrEventSender == null)
             //{
@@ -201,19 +220,25 @@ namespace AsyncSocketer
             //s = mbrEventSender.Pop(Config);
             //GetConnectBuffer().SetBuffer(s);
             #endregion
-            return s;
+            return mbrEventSender;
         }
         protected override BufferManager GetSendBuffer()
         {
             if (mbrBufferSender == null)
             {
                 mbrBufferSender = new BufferManager(Config.MaxDataConnection);
+                mbrBufferSender.ManagerIdentity = mbrSenderLocker + " mbrBufferSender";
             }
             return mbrBufferSender;
         }
-        protected override SocketAsyncEventArgs GetDisconnectAsyncEvents()
+        protected override EventPool GetDisconnectEventsPooler()
         {
-            SocketAsyncEventArgs s = InitEventPooler(mbrEventDisconnector, GetDisonnectBuffer(), Config.MaxConnectCount, OnDisconnected).Pop(Config);
+            if (mbrEventDisconnector == null)
+            {
+                mbrEventDisconnector = new EventPool(Config.MaxDataConnection);
+                mbrEventDisconnector.PoolerIdentity = " mbrEventDisconnector";
+                InitEventPooler(mbrEventDisconnector, GetDisonnectBuffer(), Config.MaxConnectCount, OnSended);
+            }
             #region ///
             //if (mbrEventDisconnector == null)
             //{
@@ -248,44 +273,45 @@ namespace AsyncSocketer
             //s = mbrEventDisconnector.Pop(Config);
             //GetConnectBuffer().SetBuffer(s);
             #endregion
-            return s;
+            return mbrEventDisconnector;
         }
         protected override BufferManager GetDisonnectBuffer()
         {
-            if (mbrBufferConnector == null)
+            if (mbrBufferDisconnector == null)
             {
-                mbrBufferConnector = new BufferManager(Config.MaxConnectCount);
+                mbrBufferDisconnector = new BufferManager(Config.MaxConnectCount);
+                mbrBufferDisconnector.ManagerIdentity = "mbrBufferConnector";
             }
-            return mbrBufferConnector;
+            return mbrBufferDisconnector;
         }
-        protected override void ResetConnectAsyncEvents()
-        {
-            if (mbrEventConnector != null)
-            {
-                mbrEventConnector.ForceClose();
-            }
-        }
-        protected override void ResetDisconnectAsyncEvents()
-        {
-            if (mbrEventDisconnector != null)
-            {
-                mbrEventDisconnector.ForceClose();
-            }
-        }
-        protected override void ResetReceiveAsyncEvents()
-        {
-            if (mbrEventRecevicer != null)
-            {
-                mbrEventRecevicer.ForceClose();
-            }
-        }
-        protected override void ResetSendAsyncEvents()
-        {
-            if (mbrEventSender != null)
-            {
-                mbrEventSender.ForceClose();
-            }
-        }
+        //protected override void ResetConnectAsyncEvents()
+        //{
+        //    if (mbrEventConnector != null)
+        //    {
+        //        mbrEventConnector.ForceClose();
+        //    }
+        //}
+        //protected override void ResetDisconnectAsyncEvents()
+        //{
+        //    if (mbrEventDisconnector != null)
+        //    {
+        //        mbrEventDisconnector.ForceClose();
+        //    }
+        //}
+        //protected override void ResetReceiveAsyncEvents()
+        //{
+        //    if (mbrEventRecevicer != null)
+        //    {
+        //        mbrEventRecevicer.ForceClose();
+        //    }
+        //}
+        //protected override void ResetSendAsyncEvents()
+        //{
+        //    if (mbrEventSender != null)
+        //    {
+        //        mbrEventSender.ForceClose();
+        //    }
+        //}
 #if DEBUG
         protected override int EventPoolerSizeConnect { get { return mbrEventDisconnector == null ? -1 : mbrEventConnector.Count; } }
         protected override int EventPoolerSizeReceive { get { return mbrEventRecevicer == null ? -1 : mbrEventRecevicer.Count; } }

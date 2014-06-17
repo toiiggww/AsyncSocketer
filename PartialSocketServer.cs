@@ -34,6 +34,7 @@ namespace AsyncSocketer
                     SocketAsyncEventArgs e = new SocketAsyncEventArgs();
                     e.RemoteEndPoint = Config.RemotePoint;
                     e.UserToken = new EventToken(mbrAcceptEventer.NextTokenID, Config);
+                    (e.UserToken as EventToken).BufferIndex = -1;
                     e.Completed += (o, x) =>
                         {
                             if (x.SocketError != SocketError.Success)
@@ -48,11 +49,11 @@ namespace AsyncSocketer
                             {
                                 OnAccepted(x);
                             }
-                            GetAcceptBuffer().FreeBuffer(x);
+                            //GetAcceptBuffer().FreeBuffer(x);
                             mbrAcceptEventer.Push(x);
                         };
                     GetAcceptBuffer().SetBuffer(e);
-                    GetAcceptBuffer().SetBuffer(e, 6);
+                    //GetAcceptBuffer().SetBuffer(e, 6);
                     mbrAcceptEventer.Push(e);
                 }
             }
@@ -79,7 +80,7 @@ namespace AsyncSocketer
         {
             try
             {
-                ClientSocket.Bind(Config.RemotePoint);
+                //ClientSocket.Bind(Config.RemotePoint);
                 ClientSocket.Listen(Config.ListenPort);
                 SocketAsyncEventArgs e = Accept();
                 fireEvent(evtBeginAccept, e);

@@ -4,11 +4,6 @@ using System.Net.Sockets;
 
 namespace AsyncSocketer
 {
-    //public class SocketAsyncEventArgs : SocketAsyncEventArgs, IDentity
-    //{
-    //    public int IDentity { get; set; }
-    //    public SocketAsyncEventArgs() : base() { }
-    //}
     public abstract class ISocketer
     {
         public ISocketer(SocketConfigure cfg)
@@ -58,8 +53,26 @@ namespace AsyncSocketer
         internal void Shutdown(SocketShutdown socketShutdown)
         {
             ClientSocker.Shutdown(socketShutdown);
+            ClientSocker.Close();
         }
-        internal bool Bind(IPEndPoint iPEndPoint)
+        public bool SocketUnAvailable
+        {
+            get
+            {
+                bool e = false;
+                if (Available == 0)
+                {
+                    try
+                    {
+                        e = ClientSocker.Poll(10, SelectMode.SelectRead);
+                    }
+                    catch { e = true; }
+                }
+                return e;
+            }
+        }
+        public int Available { get { return ClientSocker.Available; } }
+        internal bool Bind(EndPoint iPEndPoint)
         {
             ClientSocker.Bind(iPEndPoint);
             return ClientSocker.IsBound;

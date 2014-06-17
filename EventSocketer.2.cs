@@ -42,70 +42,7 @@ namespace AsyncSocketer
             }
             base.fireEvent(evt, e);
         }
-        public virtual void Connect(System.Net.IPAddress iPAddress, int p)
-        {
-            Config.RemotePoint = new IPEndPoint(iPAddress, p);
-            Connect();
-        }
-        public virtual void Connect()
-        {
-            if (
-                mbrSenderLocker == null || string.IsNullOrEmpty(mbrSenderLocker.Trim()) ||
-                mbrReceverLocker == null || string.IsNullOrEmpty(mbrReceverLocker.Trim())
-                )
-            {
-                Random r = new Random();
-                r = new Random(r.Next() * 1000);
-                ClientIdentity = string.Format("DefaultIdnetity_{0}", r.Next() * 10000);
-            }
-            fireEvent(evtConnecting, null);
-            SocketAsyncEventArgs e = GetConnectAsyncEvents();
-            if (Config.SendDataOnConnected)
-            {
-                MessageFragment m = OutMessage.GetMessage();
-                (e.UserToken as EventToken).MessageID = m.IDentity;
-                GetSendBuffer().SetBuffer(e, m.Buffer.Length);
-                Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, m.Buffer.Length);
-            }
-            if (!ClientSocket.Connect(e))
-            {
-                OnConnected(e);
-            }
-        }
-        public virtual void Disconnect()
-        {
-            SocketAsyncEventArgs e = GetDisconnectAsyncEvents();
-            if (!ClientSocket.Disconnect(e))
-            {
-                OnDisconnected(e);
-            }
-            OutMessage.ForceClose();
-            IncommeMessage.ForceClose();
-            ResetConnectAsyncEvents();
-            ResetDisconnectAsyncEvents();
-            ResetReceiveAsyncEvents();
-            ResetSendAsyncEvents();
-        }
-        public virtual void ReConnect()
-        {
-            Disconnect();
-            Connect();
-        }
         #endregion
-        protected MessagePool OutMessage { get; private set; }
-        protected MessagePool IncommeMessage { get; private set; }
-        public SocketConfigure Config { get; set; }
-        protected virtual ISocketer ClientSocket { get; set; }
-        public string ClientIdentity { set { mbrReceverLocker = "EventSocketer.Receive" + value; mbrSenderLocker = "EventSocketer.Send:" + value; } }
-        private string mbrReceverLocker, mbrSenderLocker;
-        public bool Connected { get { return Config.Protocol == ProtocolType.Tcp ? ClientSocket.Connected : mbrWaitForDisconnect; } }
-        public virtual int PreparSendMessage(byte[] msg)
-        {
-            return OutMessage.PushMessage(msg);
-        }
-        public virtual int PreparSendMessage(string msg) { return PreparSendMessage(Config.Encoding.GetBytes(msg)); }
-        private bool mbrWaitForDisconnect;
-        private Thread mbrSendThread, mbrReceiveThread;
         protected EventSocketer()
         {
             evtConnecting = new object();
@@ -124,15 +61,174 @@ namespace AsyncSocketer
             OutMessage = new MessagePool();
             IncommeMessage = new MessagePool();
             ClientSocket = CreateClientSocket();
-            foreach (IPAddress d in Dns.GetHostEntry(string.Empty).AddressList)
+            IPEndPoint p = new IPEndPoint(0, 0);
+            ClientSocket.Bind(p);
+        }
+        public virtual void Connect(System.Net.IPAddress iPAddress, int p)
+        {
+            Config.RemotePoint = new IPEndPoint(iPAddress, p);
+            Connect();
+        }
+        public virtual void Connect()
+        {
+            if (
+                mbrSenderLocker == null || string.IsNullOrEmpty(mbrSenderLocker.Trim()) ||
+                mbrReceverLocker == null || string.IsNullOrEmpty(mbrReceverLocker.Trim())
+                )
             {
-                if (d.AddressFamily == ClientSocket.AddressFamily)
+                Random r = new Random();
+                r = new Random(r.Next() * 1000);
+                ClientIdentity = string.Format("DefaultIdnetity_{0:X}", r.Next() * 10000);
+            }
+            fireEvent(evtConnecting, null);
+            SocketAsyncEventArgs e = GetConnectEventsPooler().Pop(Config);
+            if (Config.SendDataOnConnected)
+            {
+                MessageFragment m = OutMessage.GetMessage();
+                (e.UserToken as EventToken).MessageID = m.IDentity;
+                try
                 {
-                    ClientSocket.Bind(new IPEndPoint(d, Config.ListenPort));
+                    e.SetBuffer(e.Offset, m.Buffer.Length);
+                    Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, m.Buffer.Length);
+                }
+                catch
+                {
+                    string s = string.Format("Cache size {0} not enough for {1}, connect {2}", e.Count, m.Buffer.Length, (Config.OnErrorContinue ? "Continued" : "Droped"));
+                    if (!Config.OnErrorContinue)
+                    {
+                        throw new Exception(s);
+                    }
+                    else
+                    {
+                        e.SetBuffer(e.Offset, e.Count);
+                        Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, e.Count);
+                        DebugInfo(s);
+                    }
+                }
+            }
+            if (!ClientSocket.Connect(e))
+            {
+                OnConnected(e);
+            }
+        }
+        public virtual void Disconnect()
+        {
+            if (mbrWaitForDisconnect)
+            {
+                SocketAsyncEventArgs e = GetDisconnectEventsPooler().Pop(Config);
+                if (!ClientSocket.Disconnect(e))
+                {
+                    OnDisconnected(e);
+                }
+            }
+            OutMessage.ForceClose();
+            IncommeMessage.ForceClose();
+            ResetConnectAsyncEvents();
+            ResetDisconnectAsyncEvents();
+            ResetReceiveAsyncEvents();
+            ResetSendAsyncEvents();
+        }
+        public virtual void ReConnect()
+        {
+            Disconnect();
+            Connect();
+        }
+        protected virtual void Receive()
+        {
+            Monitor.Enter(mbrReceverLocker);
+            int lostCount = 1024;
+            while (mbrWaitForDisconnect)
+            {
+                if (ClientSocket.Available > 0)
+                {
+                    if (lostCount != 1024)
+                    {
+                        lostCount = 1024;
+                    }
+                    SocketAsyncEventArgs e = GetReceiveEventsPooler().Pop(Config);
+                    if (!mbrWaitForDisconnect)
+                    {
+                        break;
+                    }
+                    if (!ClientSocket.Receive(e))
+                    {
+                        OnReceived(e);
+                    }
+                    DebugInfo(string.Format("[{0}] _ Wait for Receive Compleate", e.UserToken));
+                }
+                while (ClientSocket.SocketUnAvailable && lostCount > 0)
+                {
+                    lostCount--;
+                }
+                if (lostCount == 0)
+                {
+                    mbrWaitForDisconnect = false;
+                    DebugInfo("Connect disconnected");
+                    Disconnect();
                     break;
                 }
             }
+            Monitor.Exit(mbrReceverLocker);
         }
+        protected virtual void Send()
+        {
+            Monitor.Enter(mbrSenderLocker);
+            int lostCount = 1024;
+            while (mbrWaitForDisconnect)
+            {
+                MessageFragment m = OutMessage.GetMessage();
+                if (!mbrWaitForDisconnect)
+                {
+                    break;
+                }
+                while (ClientSocket.SocketUnAvailable && lostCount > 0)
+                {
+                    lostCount--;
+                }
+                if (lostCount == 0)
+                {
+                    mbrWaitForDisconnect = false;
+                    Disconnect();
+                    break;
+                }
+                ///
+                bool lSended = false;
+                int lOffset = 0;
+                while (!lSended)
+                {
+                    SocketAsyncEventArgs e = GetSendEventsPooler().Pop(Config);
+                    int lSendByte = m.Buffer.Length >= e.Count ? e.Count : m.Buffer.Length;
+                    lSended = m.Buffer.Length < e.Count;
+                    if (!mbrWaitForDisconnect)
+                    {
+                        break;
+                    }
+                    (e.UserToken as EventToken).MessageID = m.IDentity;
+                    e.SetBuffer(e.Offset, lSendByte);
+                    Buffer.BlockCopy(m.Buffer, lOffset, e.Buffer, e.Offset, lSendByte);
+                    lOffset += lSendByte;
+                    if (!ClientSocket.Send(e))
+                    {
+                        OnSended(e);
+                    }
+                }
+            }
+            Monitor.Exit(mbrSenderLocker);
+        }
+        public SocketConfigure Config { get; set; }
+        public string ClientIdentity { set { mbrReceverLocker = "EventSocketer.Receive:" + value; mbrSenderLocker = "EventSocketer.Send:" + value; } }
+        public bool Connected { get { return Config.Protocol == ProtocolType.Tcp ? ClientSocket.Connected : mbrWaitForDisconnect; } }
+        public virtual int PreparSendMessage(byte[] msg)
+        {
+            return OutMessage.PushMessage(msg);
+        }
+        public virtual int PreparSendMessage(string msg) { return PreparSendMessage(Config.Encoding.GetBytes(msg)); }
+        protected MessagePool OutMessage { get; private set; }
+        protected MessagePool IncommeMessage { get; private set; }
+        protected virtual ISocketer ClientSocket { get; set; }
+        protected string mbrReceverLocker, mbrSenderLocker;
+        private bool mbrWaitForDisconnect;
+        private Thread mbrSendThread, mbrReceiveThread;
         private void beginSendRec()
         {
             try
@@ -149,10 +245,10 @@ namespace AsyncSocketer
             }
         }
         protected virtual ISocketer CreateClientSocket() { throw new NotImplementedException(); }
-        protected virtual SocketAsyncEventArgs GetConnectAsyncEvents() { throw new NotImplementedException(); }
-        protected virtual SocketAsyncEventArgs GetReceiveAsyncEvents() { throw new NotImplementedException(); }
-        protected virtual SocketAsyncEventArgs GetSendAsyncEvents() { throw new NotImplementedException(); }
-        protected virtual SocketAsyncEventArgs GetDisconnectAsyncEvents() { throw new NotImplementedException(); }
+        protected virtual EventPool GetConnectEventsPooler() { throw new NotImplementedException(); }
+        protected virtual EventPool GetReceiveEventsPooler() { throw new NotImplementedException(); }
+        protected virtual EventPool GetSendEventsPooler() { throw new NotImplementedException(); }
+        protected virtual EventPool GetDisconnectEventsPooler() { throw new NotImplementedException(); }
         protected virtual BufferManager GetConnectBuffer() { throw new NotImplementedException(); }
         protected virtual BufferManager GetRecevieBuffer() { throw new NotImplementedException(); }
         protected virtual BufferManager GetSendBuffer() { throw new NotImplementedException(); }
@@ -242,45 +338,17 @@ namespace AsyncSocketer
             SocketEventArgs a = new SocketEventArgs(e);
             fireEvent(evtDisconnected, e);
         }
-        protected virtual void Receive()
+        protected virtual void ResetAll()
         {
-            Monitor.Enter(mbrReceverLocker);
-            while (mbrWaitForDisconnect)
-            {
-                SocketAsyncEventArgs e = GetReceiveAsyncEvents();
-                GetRecevieBuffer().SetBuffer(e, Config.BufferSize);
-                if (!ClientSocket.Receive(e))
-                {
-                    OnReceived(e);
-                }
-                DebugInfo(string.Format("[{0}] _ Wait for Receive Compleate", e.UserToken));
-            }
-            Monitor.Exit(mbrReceverLocker);
+            ResetConnectAsyncEvents();
+            ResetDisconnectAsyncEvents();
+            ResetReceiveAsyncEvents();
+            ResetSendAsyncEvents();
         }
-        protected virtual void Send()
-        {
-            Monitor.Enter(mbrSenderLocker);
-            while (mbrWaitForDisconnect)
-            {
-                SocketAsyncEventArgs e = GetSendAsyncEvents();
-                DebugInfo(string.Format("[{0}] _ Wait for Message",e.UserToken));
-                MessageFragment m = OutMessage.GetMessage();
-                DebugInfo(string.Format("[{0}] _ Got Message",e.UserToken));
-                (e.UserToken as EventToken).MessageID = m.IDentity;
-                GetSendBuffer().SetBuffer(e, m.Buffer.Length);
-                Buffer.BlockCopy(m.Buffer, 0, e.Buffer, e.Offset, m.Buffer.Length);
-                if (!ClientSocket.Send(e))
-                {
-                    OnSended(e);
-                }
-                DebugInfo(string.Format("[{0}] _ Wait for Send Compleate", e.UserToken));
-            }
-            Monitor.Exit(mbrSenderLocker);
-        }
-        protected virtual void ResetConnectAsyncEvents() { }
-        protected virtual void ResetReceiveAsyncEvents() { }
-        protected virtual void ResetSendAsyncEvents() { }
-        protected virtual void ResetDisconnectAsyncEvents() { }
+        protected virtual void ResetConnectAsyncEvents() { GetConnectEventsPooler().ForceClose(); }
+        protected virtual void ResetReceiveAsyncEvents() { GetReceiveEventsPooler().ForceClose(); }
+        protected virtual void ResetSendAsyncEvents() { GetSendEventsPooler().ForceClose(); }
+        protected virtual void ResetDisconnectAsyncEvents() { GetDisconnectEventsPooler().ForceClose(); }
 #if DEBUG
         protected virtual int EventPoolerSizeConnect { get; private set; }
         protected virtual int EventPoolerSizeSend { get; private set; }
@@ -294,157 +362,5 @@ namespace AsyncSocketer
             Debuger.DebugInfo(string.Format("msg:[{0}],EventPoolerSizeConnect:[{1}],EventPoolerSizeReceive:[{2}],EventPoolerSizeSend:[{3}],MessagePoolerSizeReceive:[{4}],MessagePoolerSizeSend:[{5}]", o, EventPoolerSizeConnect, EventPoolerSizeReceive, EventPoolerSizeSend, MessagePoolerSizeReceive, MessagePoolerSizeSend));
 #endif
         }
-    }
-    public class Debuger
-    {
-        private static object mbrDebugHandler = new object();
-        public static void DebugInfo(object o)
-        {
-#if DEBUG
-            lock (mbrDebugHandler)
-            {
-                if (o == null)
-                {
-                    DebugInfo("====]> NULL <[====");
-                }
-                else if (o.GetType() == typeof(byte[]))
-                {
-                    DebugInfo(SocketEventArgs.FormatArrayMatrix(o as byte[]));
-                }
-                else
-                {
-                    string[] s = o.ToString().Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
-                    foreach (string x in s)
-                    {
-                        System.Console.WriteLine(string.Format("{0}\t{1}", DateTime.Now, x));
-                    }
-                }
-            }
-#endif
-        }
-    }
-    internal delegate void SocketEvents(SocketAsyncEventArgs e);
-    public delegate void SocketEventHandler(object sender, SocketEventArgs e);
-    public delegate void ServerSocketEventHandler(object sender, ServerSocketEventArgs e);
-    public delegate void SocketErrorHandler(object sender, SocketErrorArgs e);
-    public delegate void SocketPerformanceHandler(object sender, PerformanceCountArgs e);
-    public class SocketEventArgs : EventArgs
-    {
-        public SocketEventArgs(SocketAsyncEventArgs e)
-        {
-            SocketStatus = e.SocketError;
-            EventToken t = (e.UserToken as EventToken);
-            if (t != null)
-            {
-                SessionID = t.SessionID;
-                MessageIndex = t.MessageID;
-                if (e.BytesTransferred > 0)
-                {
-                    Buffer = new byte[e.BytesTransferred];
-                    System.Buffer.BlockCopy(e.Buffer, e.Offset, Buffer, 0, e.BytesTransferred);
-                }
-                Remoter = e.RemoteEndPoint;
-            }
-        }
-        public SocketError SocketStatus { get; set; }
-        public int SessionID { get; set; }
-        public int MessageIndex { get; set; }
-        public byte[] Buffer { get; set; }
-        public EndPoint Remoter { get; set; }
-        public override string ToString()
-        {
-            string r = string.Format("Socket:[{0}][{1}][{2}][{3}]", SessionID, Remoter, MessageIndex, SocketStatus);
-            r = string.Format("{0}{1}{2}", r, Environment.NewLine, FormatArrayMatrix(Buffer));
-            return r;
-        }
-        public static string FormatArrayMatrix(byte[] array)
-        {
-            string r = "";
-#if DEBUG
-            string b = "", s = "";
-            r = string.Format("{0}{1}Index \\ Offset  ", r, Environment.NewLine);
-            int i = 0, j = 0;
-            for (; i < 16; i++)
-            {
-                r = string.Format("{0} _{1:X}", r, i);
-            }
-            r = r + " [_____string_____]" + Environment.NewLine;
-            i = array.Length / 16;
-            for (int k = 0; k < i; k++)
-            {
-                for (j = k * 16; j < (((k + 1) * 16 > array.Length) ? array.Length - 1 : ((k + 1) * 16)); j++)
-                {
-                    b = string.Format("{0} {1:X2}", b, array[j]);
-                    s = string.Format("{0}{1}", s, (array[j] == 0 ? '.' : ((array[j] == 0x0a || array[j] == 0x0d || array[j] == 0x08 || array[j] == 0x09 || array[j] == 0x7f) ? '_' : (char)array[j])));
-                }
-                r = string.Format("{0}{1:X11}_ |  {2}  {3:50}{4}", r, k, b, s, Environment.NewLine);
-                b = "";
-                s = "";
-                if (k == i - 1)
-                {
-                    for (j = (k + 1) * 16; j < array.Length; j++)
-                    {
-                        b = string.Format("{0} {1:X2}", b, array[j]);
-                        s = string.Format("{0}{1}", s, (array[j] == 0 ? '.' : ((array[j] == 0x0a || array[j] == 0x0d || array[j] == 0x08 || array[j] == 0x09 || array[j] == 0x7f) ? '_' : (char)array[j])));
-                    }
-                    for (j = 0; j < (i + 1) * 16 - array.Length; j++)
-                    {
-                        b = string.Format("{0}   ", b);
-                    }
-                    k++;
-                    r = string.Format("{0}{1:X11}_ |  {2}  {3:50}{4}", r, k, b, s, Environment.NewLine);
-                }
-            }
-#endif
-            return r;
-        }
-    }
-    public class ServerSocketEventArgs : SocketEventArgs
-    {
-        public ServerSocketEventArgs(SocketAsyncEventArgs e) : base(e) { AcceptSocket = e.AcceptSocket; }
-        public Socket AcceptSocket { get; set; }
-    }
-    public class SocketErrorArgs : EventArgs
-    {
-        public SocketError SocketError { get; set; }
-        public Exception Exception { get; set; }
-        public SocketAsyncOperation Operation { get; set; }
-        public string Message { get; set; }
-        public override string ToString()
-        {
-            return string.Format("Error:[{0}]{1}On {2} with {3} as : {4}", Message, Environment.NewLine, Operation, SocketError, Exception);
-        }
-        public SocketErrorArgs() { }
-        public SocketErrorArgs(SocketAsyncEventArgs e)
-        {
-            SocketError = e.SocketError;
-            Operation = e.LastOperation;
-        }
-    }
-    public class PerformanceCountArgs : EventArgs
-    {
-        public int SendPackages { get; set; }
-        public int SendBytes { get; set; }
-        public int TotalSendPackages { get; set; }
-        public int TotalSendBytes { get; set; }
-        public int ReceivePackages { get; set; }
-        public int ReceiveBytes { get; set; }
-        public int TotalReceivePackages { get; set; }
-        public int TotalReceiveBytes { get; set; }
-        public int MaxSendBytes { get; set; }
-        public int MaxReceivedBytes { get; set; }
-        public int SendMessagesInPooler { get; set; }
-        public int ReceivedMessagesInPooler { get; set; }
-        public int Connectting { get; set; }
-        public int ConnectFailed { get; set; }
-        public int Disconnectting { get; set; }
-        public int Errors { get; set; }
-        public TimeSpan MaxSendTime { get; set; }
-        public TimeSpan MaxReceiveTime { get; set; }
-    }
-    public class ServerPerformanceCountArgs : PerformanceCountArgs
-    {
-        public int AcceptedCount { get; set; }
-        public int AcceptedError { get; set; }
     }
 }

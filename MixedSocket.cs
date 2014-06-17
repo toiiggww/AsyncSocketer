@@ -44,7 +44,7 @@ namespace AsyncSocketer
                         }
                         if (!Config.OnErrorContinue)
                         {
-                            SocketBuffer.FreeBuffer(x);
+                            //SocketBuffer.FreeBuffer(x);
                             SocketPooler.Push(x);
                             return;
                         }
@@ -108,7 +108,7 @@ namespace AsyncSocketer
         private void RecycleSocket(SocketAsyncEventArgs x)
         {
             (x.UserToken as EventToken).Reset();
-            SocketBuffer.FreeBuffer(x);
+            //SocketBuffer.FreeBuffer(x);
             SocketPooler.Push(x);
         }
         protected override BufferManager GetConnectBuffer()

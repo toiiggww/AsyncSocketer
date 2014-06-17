@@ -68,13 +68,13 @@ SocketAsyncEventArgs 的套接字上下文
 通过使用`EventSocketer`派生的子类，并重载`CreateClientSocket`来获得一个重载自`ISocketer`的套接字实例以实现具体的网络操作，通过重载类似`Get***AsyncEvents`的相关函数来获得异步操作时需要使用到的`SocketAsyncEventArgs`，通过重载形如`Get***Buffer`的相关函数来获得缓存管理`BufferManager`类的实例，通过重载与`OnSended`相似的函数在事件发生后来处理`SocketAsyncEventArgs`对象，通过重载`Receive`和`Send`函数来自定义接收和发送数据的方式，通过重载`Reset***AsyncEvents`相似的函数在断开连接时来重置 SocketAsyncEventArgs 池。
 * `连接`
 
-`EventSocketer`的构造函数`EventSocketer(SocketConfigure sc)`调用它的无参构造函数来初始化事件注册对象和收发数据线程。`EventSocketer`及其子类使用`Connect`连接到指定的远程主机，并引发`Connecting`事件，在`Connect`函数中使用`CreateClientSocket()`得到的`ISocketer`实例`ClientSocket`的异步连接方法。连接成功之后，在`OnConnected`函数中引发`AfterConnected`事件，并启动`Receive`和`Send`的收发线程，开始收发网线数据。
+`EventSocketer`的构造函数`EventSocketer(SocketConfigure sc)`调用它的无参构造函数来初始化事件注册对象和收发数据线程。`EventSocketer`及其子类使用`Connect`连接到指定的远程主机，并引发`Connecting`事件，在`Connect`函数中使用`CreateClientSocket()`得到的`ISocketer`实例`ClientSocket`，使用`GetConnectEventsPooler`函数得到一个`EventPool`实例，使用`ClientSocket`的`Connect`函数使用实际`Socket`套接字的异步连接方法连接到服务器。连接成功之后，在`OnConnected`函数中引发`AfterConnected`事件，并启动`Receive`和`Send`的收发线程，开始收发网线数据。
 * `接收`
 
-在连接成功之后，`EventSocketer`的私有成员`mbrWaitForDisconnect`会被置为网络状态，一般情况下为`true`。在`Receive`线程中，会使用`while`循环检查该状态值，为`true`时检查`ClientSocket`的`Available`值，该值大于 0 时，重置`lostCount`计数为1024，并调用`GetReceiveAsyncEvents`函数从`EventPool`池中获取用于进行异步接收的`SocketAsyncEventArgs`实例，在`OnReceived`函数中将，使用`SocketEventArgs`复制收到的网络数据，使用`MessagePool`的实例`IncommeMessage`的`PushMessage`将网络数据存入接收数据缓存，将性能计数项增加实际数字，并引发`Recevied`事件。异步接收完成之后，检查`ClientSocket.SocketUnAvailable`属性检查网络状态，在为`true`时，连接暂时不可用，对`lostCount`逐减，减到0时，连接丢失，调用`Disconnect`函数断开连接。
+在连接成功之后，`EventSocketer`的私有成员`mbrWaitForDisconnect`会被置为网络状态，一般情况下为`true`。在`Receive`线程中，会使用`while`循环检查该状态值，为`true`时检查`ClientSocket`的`Available`值，该值大于 0 时，重置`lostCount`计数为1024，并调用`GetReceiveEventsPooler`函数得到`EventPool`池的实例，并使用`Pop(SocketConfigure config)`函数中获取用于进行异步接收的`SocketAsyncEventArgs`实例，在`OnReceived`函数中将，使用`SocketEventArgs`复制收到的网络数据，使用`MessagePool`的实例`IncommeMessage`的`PushMessage`将网络数据存入接收数据缓存，将性能计数项增加实际数字，并引发`Recevied`事件。异步接收完成之后，检查`ClientSocket.SocketUnAvailable`属性检查网络状态，在为`true`时，连接暂时不可用，对`lostCount`逐减，减到0时，连接丢失，调用`Disconnect`函数断开连接。
 * `发送`
 
-在连接成功之后，`EventSocketer`的私有成员`mbrWaitForDisconnect`会被置为网络状态，一般情况下为`true`。在`Send`线程中，会使用`while`循环检查该状态值，为`true`时调用`GetSendAsyncEvents`获取用以异步发送的`SocketAsyncEventArgs`实例，使用`MessagePool`的实例`OutMessage`的`GetMessage`函数获取需要发送的数据，使用`ClientSocket`的`Send`异步发送，在发送成功之后，调用`OnSended`函数，进行发送后处理，并引发`Sended`事件，将性能计数项增加实际数字。
+在连接成功之后，`EventSocketer`的私有成员`mbrWaitForDisconnect`会被置为网络状态，一般情况下为`true`。在`Send`线程中，会使用`while`循环检查该状态值，为`true`时调用`GetSendEventsPooler`函数得到`EventPool`池的实例，并使用`Pop(SocketConfigure config)`函数中获取用以异步发送的`SocketAsyncEventArgs`实例，使用`MessagePool`的实例`OutMessage`的`GetMessage`函数获取需要发送的数据，使用`ClientSocket`的`Send`异步发送，在发送成功之后，调用`OnSended`函数，进行发送后处理，并引发`Sended`事件，将性能计数项增加实际数字。
 * `断开`
 
 在收发数据的线程中，如果连接丢失，通过调用`Disconnect`函数，或直接调用该函数，将调用`ClientSocket`的`Disconnect`函数进行异步断开连接，并调用`MessagePool`的实例的`ForceClose`函数，取消队列等待信号，调用`ResetConnectAsyncEvents`、`ResetDisconnectAsyncEvents`、`ResetReceiveAsyncEvents`、`ResetSendAsyncEvents`取消`EventPool`池的等待信号。

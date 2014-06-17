@@ -12,66 +12,81 @@ namespace AsyncSocketer
         public Stack<int> BufferIndex { get; private set; }
         public int Index { get; private set; }
         public const int BufferSize = 8192;
-        public BufferManager(int bytes, int size)
-            : this()
-        {
-            Bytes = bytes;
-        }
+        public int MaxCount { get; private set; }
+        public string ManagerIdentity { get; set; }
+        private int BufferedCount { get; set; }
+        public int FragmentSize { get; private set; }
         public BufferManager(int instance)
+            : this(instance, -1)
+        {
+        }
+        public BufferManager(int instance,int fragmentsize)
             : this()
         {
-            Bytes = instance * BufferSize;
+            FragmentSize = (fragmentsize < 1 ? BufferSize : fragmentsize);
+            Bytes = instance * FragmentSize;
+            MaxCount = instance;
+            Buffer = new byte[Bytes];
         }
-        public BufferManager()
+        private BufferManager()
         {
             BufferIndex = new Stack<int>();
             Index = 0;
+            BufferedCount = 0;
         }
         public bool SetBuffer(System.Net.Sockets.SocketAsyncEventArgs e)
         {
-            return SetBuffer(e, BufferSize);
-        }
-        public bool SetBuffer(System.Net.Sockets.SocketAsyncEventArgs e, int size)
-        {
-            if (Buffer == null)
+            if (BufferedCount < MaxCount && (e.UserToken as EventToken).BufferIndex < 0)
             {
-                Buffer = new byte[Bytes];
+                e.SetBuffer(Buffer, Index, FragmentSize);
+                Index += FragmentSize;
+                (e.UserToken as EventToken).BufferIndex = BufferedCount;
+                BufferedCount++;
+                return true;
             }
-            if (BufferIndex.Count > 0)
-            {
-                e.SetBuffer(Buffer, BufferIndex.Pop(), BufferSize);
-            }
-            else
-            {
-                if (Index + BufferSize > Bytes)
-                {
-                    return false;
-                }
-                e.SetBuffer(Buffer, Index, 20);
-                Index += BufferSize;
-            }
-            return true;
+            return false;
         }
-        public void FreeBuffer(System.Net.Sockets.SocketAsyncEventArgs e)
-        {
-            BufferIndex.Push(e.Offset);
-            //e.SetBuffer(null, 0, 0);
-            //SetBuffer(e, 1);
-        }
+        //public bool SetBuffer(System.Net.Sockets.SocketAsyncEventArgs e, int size)
+        //{
+        //    if (Buffer == null)
+        //    {
+        //        Buffer = new byte[Bytes];
+        //    }
+        //    if (BufferIndex.Count > 0)
+        //    {
+        //        e.SetBuffer(Buffer, BufferIndex.Pop(), BufferSize);
+        //    }
+        //    else
+        //    {
+        //        if (Index + BufferSize > Bytes)
+        //        {
+        //            return false;
+        //        }
+        //        e.SetBuffer(Buffer, Index, 20);
+        //        Index += BufferSize;
+        //    }
+        //    return true;
+        //}
+        //public void FreeBuffer(System.Net.Sockets.SocketAsyncEventArgs e)
+        //{
+        //    BufferIndex.Push(e.Offset);
+        //    //e.SetBuffer(null, 0, 0);
+        //    //SetBuffer(e, 1);
+        //}
 
-        internal void Copy(byte[] b, System.Net.Sockets.SocketAsyncEventArgs ex)
-        {
-            int o = 0;
-            if (b.Length > BufferSize)
-            {
-                o = BufferSize;
-            }
-            else
-            {
-                o = b.Length;
-            }
-            System.Buffer.BlockCopy(b, 0, Buffer, ex.Offset, o);
-        }
+        //internal void Copy(byte[] b, System.Net.Sockets.SocketAsyncEventArgs ex)
+        //{
+        //    int o = 0;
+        //    if (b.Length > BufferSize)
+        //    {
+        //        o = BufferSize;
+        //    }
+        //    else
+        //    {
+        //        o = b.Length;
+        //    }
+        //    System.Buffer.BlockCopy(b, 0, Buffer, ex.Offset, o);
+        //}
 
         public int Count { get { return 0 - BufferIndex.Count; } }
     }

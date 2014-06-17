@@ -43,6 +43,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="EventArgs.cs" />
     <Compile Include="ISocketer.cs" />
     <Compile Include="PartialSocket.cs">
       <SubType>Component</SubType>

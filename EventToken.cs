@@ -11,6 +11,7 @@ namespace AsyncSocketer
         public int CurrentIndex { get; private set; }
         public int MessageID { get; set; }
         public int EventID { get; set; }
+        public int BufferIndex { get; set; }
         private Queue<MessageFragment> Messages { get; set; }
         public SocketConfigure Config { get; private set; }
         public EventToken(int id, SocketConfigure cfg)
@@ -18,6 +19,7 @@ namespace AsyncSocketer
             SessionID = id;
             Messages = new Queue<MessageFragment>();
             Config = cfg;
+            BufferIndex = -1;
         }
         public MessageFragment Next()
         {

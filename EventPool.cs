@@ -7,9 +7,10 @@ using System.Threading;
 
 namespace AsyncSocketer
 {
-    class EventPool
+    public class EventPool
     {
         private Pooler<EventArgObject> mbrPooler;
+        public string PoolerIdentity { get; set; }
         public EventPool(int size)
         {
             mbrPooler = new Pooler<EventArgObject>(size, 0, size);
@@ -35,7 +36,7 @@ namespace AsyncSocketer
         }
         public int Count { get { return mbrPooler.CurrentSize; } }
     }
-    class EventArgObject : IDentity
+    internal class EventArgObject : IDentity
     {
         #region IDentity Members
 
