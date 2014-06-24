@@ -24,51 +24,15 @@ namespace AsyncSocketer
             //mbrEventRecevicer = new EventPool(Config.MaxDataConnection);
             //mbrEventSender = new EventPool(3);
         }
-        private void InitEventPooler(EventPool pooler, BufferManager buffers, int length, SocketEvents fun)
-        {
-            if (pooler != null)
-            {
-                for (int i = 0; i < length; i++)
-                {
-                    SocketAsyncEventArgs e = new SocketAsyncEventArgs();
-                    e.RemoteEndPoint = Config.RemotePoint;
-                    e.UserToken = new EventToken(pooler.NextTokenID, Config);
-                    e.Completed += (o, x) =>
-                    {
-                        if (x.SocketError != SocketError.Success)
-                        {
-                            OnError(x);
-                            if (!Config.OnErrorContinue)
-                            {
-                                return;
-                            }
-                        }
-                        else
-                        {
-                            fun(x);
-                        }
-                        pooler.Push(x);
-                    };
-                    if (buffers.SetBuffer(e))
-                    {
-                        pooler.Push(e);
-                    }
-                    else
-                    {
-                        throw new Exception("SetBuffer");
-                    }
-                }
-            }
-        }
         protected override ISocketer CreateClientSocket()
         {
             if (Config.Protocol == ProtocolType.Tcp)
             {
-                return new TcpSocketer(Config);
+                return TcpSocketer.CreateSocket(Config);
             }
             else if (Config.Protocol == ProtocolType.Udp)
             {
-                return new UdpSocketer(Config);
+                return UdpSocketer.CreateSocket(Config);
             }
             return base.CreateClientSocket();
         }
@@ -237,7 +201,7 @@ namespace AsyncSocketer
             {
                 mbrEventDisconnector = new EventPool(Config.MaxDataConnection);
                 mbrEventDisconnector.PoolerIdentity = " mbrEventDisconnector";
-                InitEventPooler(mbrEventDisconnector, GetDisonnectBuffer(), Config.MaxConnectCount, OnSended);
+                InitEventPooler(mbrEventDisconnector, GetDisonnectBuffer(), Config.MaxConnectCount, OnDisconnected);
             }
             #region ///
             //if (mbrEventDisconnector == null)
@@ -279,7 +243,7 @@ namespace AsyncSocketer
         {
             if (mbrBufferDisconnector == null)
             {
-                mbrBufferDisconnector = new BufferManager(Config.MaxConnectCount);
+                mbrBufferDisconnector = new BufferManager(Config.MaxConnectCount,Config.ConnectBufferSize);
                 mbrBufferDisconnector.ManagerIdentity = "mbrBufferConnector";
             }
             return mbrBufferDisconnector;
