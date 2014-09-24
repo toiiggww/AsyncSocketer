@@ -10,8 +10,23 @@ namespace AsyncSocketer
         {
             Config = cfg;
         }
+        public ISocketer(SocketConfigure cfg, Socket skt)
+            : this(cfg)
+        {
+            if (skt == null)
+            {
+                ClientSocker = CreateSocket();
+            }
+            else
+            {
+                ClientSocker = skt;
+            }
+            SetTimeOut();
+            ClientSocker.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            ClientSocker.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, Config.SocketType == EventSocketType.Server);
+        }
         protected SocketConfigure Config { get; private set; }
-        protected Socket ClientSocker { get; set; }
+        public Socket ClientSocker { get;private set; }
         protected bool mbrSocketUnAvailable;
         public void SetTimeOut()
         {
@@ -31,7 +46,9 @@ namespace AsyncSocketer
         }
         public virtual bool Disconnect(SocketAsyncEventArgs e)
         {
-            return ClientSocker.DisconnectAsync(e);
+            bool r = ClientSocker.DisconnectAsync(e);
+            Shutdown(SocketShutdown.Both);
+            return r;
         }
         public virtual bool Receive(SocketAsyncEventArgs e)
         {
@@ -40,14 +57,6 @@ namespace AsyncSocketer
         public virtual bool Send(SocketAsyncEventArgs e)
         {
             return ClientSocker.SendAsync(e);
-        }
-        public static void CancelConnect(SocketAsyncEventArgs e)
-        {
-            Socket.CancelConnectAsync(e);
-        }
-        public static bool Connect(SocketType socketType, ProtocolType protocolType, SocketAsyncEventArgs e)
-        {
-            return Socket.ConnectAsync(socketType, protocolType, e);
         }
         public AddressFamily AddressFamily { get { return ClientSocker.AddressFamily; } }
         public bool Connected { get { return ClientSocker.Connected; } }
@@ -71,69 +80,64 @@ namespace AsyncSocketer
                 return mbrSocketUnAvailable;
             }
         }
-        public virtual int Available { get { return ClientSocker.Available; } }
-        public bool Bind(EndPoint iPEndPoint)
+        public virtual int Available { get { try { return ClientSocker == null ? -1 : ClientSocker.Available; } catch { return -2; } } }
+        public virtual bool Bind(IPEndPoint iPEndPoint)
         {
-            ClientSocker.Bind(iPEndPoint);
+            try
+            {
+                ClientSocker.Bind(iPEndPoint);
+            }
+            catch
+            {
+                try
+                {
+                    ClientSocker.Bind(new IPEndPoint(0, iPEndPoint.Port));
+                }
+                catch
+                {
+                    ClientSocker.Bind(new IPEndPoint(0, 0));
+                }
+            }
             return ClientSocker.IsBound;
         }
-        public void Listen(int port)
+        public void Listen(int blocking)
         {
-            ClientSocker.Listen(port);
+            ClientSocker.Listen(blocking);
         }
-
-        public static ISocketer CreateSocket(SocketConfigure Config)
-        {
-            throw new NotImplementedException();
-        }
+        protected virtual Socket CreateSocket() { throw new NotImplementedException(); }
     }
     public class TcpSocketer : ISocketer
     {
-        public TcpSocketer(SocketConfigure cfg)
-            : base(cfg)
+        public TcpSocketer(SocketConfigure Config)
+            : this(Config, null)
         {
-            ClientSocker = new Socket(Config.RemotePoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-            SetTimeOut();
         }
-        public override bool Send(SocketAsyncEventArgs e)
+        public TcpSocketer(SocketConfigure cfg, Socket skt)
+            : base(cfg, skt)
         {
-            return ClientSocker.Connected ? base.Send(e) : false;
         }
-        public override bool Receive(SocketAsyncEventArgs e)
+        protected override Socket CreateSocket()
         {
-            return ClientSocker.Connected ? base.Receive(e) : false;
+            return new Socket(Config.SocketPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         }
         public static ISocketer CreateSocket(SocketConfigure Config)
         {
             return new TcpSocketer(Config);
         }
+        public static ISocketer CreateSocket(SocketConfigure Config, Socket skt)
+        {
+            return new TcpSocketer(Config, skt);
+        }
     }
     public class UdpSocketer : ISocketer
     {
         public UdpSocketer(SocketConfigure cfg)
-            : base(cfg)
+            : this(cfg, null)
         {
-            ClientSocker = new Socket(Config.RemotePoint.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
-            SetTimeOut();
         }
-        public override bool Connect(SocketAsyncEventArgs e)
+        public UdpSocketer(SocketConfigure cfg, Socket skt)
+            : base(cfg, skt)
         {
-            mbrSocketUnAvailable = false;
-            return Send(e);
-        }
-        public override bool Disconnect(SocketAsyncEventArgs e)
-        {
-            mbrSocketUnAvailable = true;
-            return Send(e);
-        }
-        public override bool Send(SocketAsyncEventArgs e)
-        {
-            return ClientSocker.SendToAsync(e);
-        }
-        public override bool Receive(SocketAsyncEventArgs e)
-        {
-            e.RemoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-            return ClientSocker.ReceiveFromAsync(e);
         }
         public override bool SocketUnAvailable
         {
@@ -147,9 +151,37 @@ namespace AsyncSocketer
                 return mbrSocketUnAvailable;
             }
         }
+        public override bool Connect(SocketAsyncEventArgs e)
+        {
+            return Send(e);
+        }
+        public override bool Disconnect(SocketAsyncEventArgs e)
+        {
+            return Send(e);
+        }
+        public override bool Send(SocketAsyncEventArgs e)
+        {
+            return ClientSocker.SendToAsync(e);
+        }
+        public override bool Receive(SocketAsyncEventArgs e)
+        {
+            return ClientSocker.ReceiveFromAsync(e);
+        }
+        public override bool Accept(SocketAsyncEventArgs e)
+        {
+            return ClientSocker.ReceiveFromAsync(e);
+        }
+        protected override Socket CreateSocket()
+        {
+            return new Socket(Config.SocketPoint.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+        }
         public static ISocketer CreateSocket(SocketConfigure Config)
         {
             return new UdpSocketer(Config);
+        }
+        public static ISocketer CreateSocket(SocketConfigure Config, Socket skt)
+        {
+            return new UdpSocketer(Config, skt);
         }
         public override int Available
         {

@@ -77,6 +77,7 @@ namespace AsyncSocketer
             mbrPConT,           // Total Connect
             mbrPConF,           // Connect fail
             mbrPDisC,           // Disconnect
+            mbrPAcpC,           // Accept Count
             mbrPErrC;           // Errors
         protected bool mbrPerformanceEnabled;
         public bool EnablePerformance

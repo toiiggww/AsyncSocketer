@@ -20,8 +20,9 @@ namespace AsyncSocketer
         private bool mbrForAbort;
         public TEArtType Popup()
         {
-            if (mbrPooler.Count == 0)
+            while (mbrPooler.Count == 0)
             {
+                Console.Write("[W1]");
                 mbrEmptyLocker.Reset();
                 mbrEmptyLocker.WaitOne();
                 if (mbrForAbort)

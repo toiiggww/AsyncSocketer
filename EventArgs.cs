@@ -7,35 +7,7 @@ using System.Net;
 
 namespace AsyncSocketer
 {
-    public class Debuger
-    {
-        private static object mbrDebugHandler = new object();
-        public static void DebugInfo(object o)
-        {
-#if DEBUG
-            lock (mbrDebugHandler)
-            {
-                if (o == null)
-                {
-                    DebugInfo("====]> NULL <[====");
-                }
-                else if (o.GetType() == typeof(byte[]))
-                {
-                    DebugInfo(SocketEventArgs.FormatArrayMatrix(o as byte[]));
-                }
-                else
-                {
-                    string[] s = o.ToString().Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
-                    foreach (string x in s)
-                    {
-                        System.Console.WriteLine(string.Format("{0}\t{1}", DateTime.Now, x));
-                    }
-                }
-            }
-#endif
-        }
-    }
-    internal delegate void SocketEvents(SocketAsyncEventArgs e);
+    public delegate void SocketEvents(SocketAsyncEventArgs e);
     public delegate void SocketEventHandler(object sender, SocketEventArgs e);
     public delegate void ServerSocketEventHandler(object sender, ServerSocketEventArgs e);
     public delegate void SocketErrorHandler(object sender, SocketErrorArgs e);
@@ -72,6 +44,10 @@ namespace AsyncSocketer
         public static string FormatArrayMatrix(byte[] array)
         {
             string r = "";
+            if (r == null)
+            {
+                return r;
+            }
 #if DEBUG
             string b = "", s = "";
             r = string.Format("{0}{1}Index \\ Offset  ", r, Environment.NewLine);
@@ -129,8 +105,8 @@ namespace AsyncSocketer
     }
     public class ServerSocketEventArgs : SocketEventArgs
     {
-        public ServerSocketEventArgs(SocketAsyncEventArgs e) : base(e) { AcceptSocket = e.AcceptSocket; }
-        public Socket AcceptSocket { get; set; }
+        public ServerSocketEventArgs(SocketAsyncEventArgs e) : base(e) { }
+        public EventSocketer AcceptSocket { get; set; }
     }
     public class SocketErrorArgs : EventArgs
     {
@@ -138,6 +114,7 @@ namespace AsyncSocketer
         public Exception Exception { get; set; }
         public SocketAsyncOperation Operation { get; set; }
         public string Message { get; set; }
+        public EndPoint RemoteEndPoint { get; set; }
         public override string ToString()
         {
             return string.Format("Error:[{0}]{1}On {2} with {3} as : {4}", Message, Environment.NewLine, Operation, SocketError, Exception);
@@ -147,6 +124,7 @@ namespace AsyncSocketer
         {
             SocketError = e.SocketError;
             Operation = e.LastOperation;
+            RemoteEndPoint = e.RemoteEndPoint;
         }
     }
     public class PerformanceCountArgs : EventArgs

@@ -8,8 +8,9 @@ namespace AsyncSocketer
 {
     public class PartialSocket : EventSocketer
     {
-        private EventPool mbrEventConnector, mbrEventSender, mbrEventRecevicer, mbrEventDisconnector;
-        private BufferManager mbrBufferConnector, mbrBufferSender, mbrBufferRecevicer, mbrBufferDisconnector;
+        private EventPool mbrEventAcceptor, mbrEventConnector, mbrEventSender, mbrEventRecevicer, mbrEventDisconnector;
+        private BufferManager mbrBufferAcceptor, mbrBufferConnector, mbrBufferSender, mbrBufferRecevicer, mbrBufferDisconnector;
+        private Pooler<EventSocketer> mbrAcceptSocketor;
         protected PartialSocket()
         {
         }
@@ -36,13 +37,44 @@ namespace AsyncSocketer
             }
             return base.CreateClientSocket();
         }
+        protected override ISocketer CreateClientSocket(Socket skt)
+        {
+            if (Config.Protocol == ProtocolType.Tcp)
+            {
+                return TcpSocketer.CreateSocket(Config, skt);
+            }
+            else if (Config.Protocol == ProtocolType.Udp)
+            {
+                return UdpSocketer.CreateSocket(Config, skt);
+            }
+            return base.CreateClientSocket(skt);
+        }
+        protected override EventPool GetAcceptEventsPooler()
+        {
+            if (mbrEventAcceptor == null)
+            {
+                mbrEventAcceptor = new EventPool(Config.AsyncSendReceiveEventInstance);
+                mbrEventAcceptor.PoolerIdentity = mbrAcceptLocker + "_mbrEventAcceptor";
+                InitEventPooler(mbrEventAcceptor, GetAcceptBuffer(), Config.AsyncSendReceiveEventInstance, OnAccepted);
+            }
+            return mbrEventAcceptor;
+        }
+        protected override BufferManager GetAcceptBuffer()
+        {
+            if (mbrBufferAcceptor == null)
+            {
+                mbrBufferAcceptor = new BufferManager(Config.AsyncSendReceiveEventInstance);
+                mbrBufferAcceptor.ManagerIdentity = mbrAcceptLocker + "_mbrBufferAcceptor";
+            }
+            return mbrBufferAcceptor;
+        }
         protected override EventPool GetConnectEventsPooler()
         {
             if (mbrEventConnector == null)
             {
-                mbrEventConnector = new EventPool(Config.MaxConnectCount);
-                mbrEventConnector.PoolerIdentity = mbrReceverLocker + " mbrEventConnector";
-                InitEventPooler(mbrEventConnector, GetConnectBuffer(), Config.MaxConnectCount, OnConnected);
+                mbrEventConnector = new EventPool(Config.AsyncConnectEventInstance);
+                mbrEventConnector.PoolerIdentity = mbrReceverLocker + "_mbrEventConnector";
+                InitEventPooler(mbrEventConnector, GetConnectBuffer(), Config.AsyncConnectEventInstance, OnConnected);
             }
             #region ///
             //if (mbrEventConnector == null)
@@ -84,7 +116,7 @@ namespace AsyncSocketer
         {
             if (mbrBufferConnector == null)
             {
-                mbrBufferConnector = new BufferManager(Config.MaxConnectCount,Config.ConnectBufferSize);
+                mbrBufferConnector = new BufferManager(Config.AsyncConnectEventInstance,Config.ConnectBufferSize);
                 mbrBufferConnector.ManagerIdentity = "mbrBufferConnector";
             }
             return mbrBufferConnector;
@@ -93,9 +125,9 @@ namespace AsyncSocketer
         {
             if (mbrEventRecevicer == null)
             {
-                mbrEventRecevicer = new EventPool(Config.MaxDataConnection);
-                mbrEventRecevicer.PoolerIdentity = mbrReceverLocker + " mbrEventRecevicer";
-                InitEventPooler(mbrEventRecevicer, GetRecevieBuffer(), Config.MaxDataConnection, OnReceived);
+                mbrEventRecevicer = new EventPool(Config.AsyncSendReceiveEventInstance);
+                mbrEventRecevicer.PoolerIdentity = mbrReceverLocker + "_mbrEventRecevicer";
+                InitEventPooler(mbrEventRecevicer, GetRecevieBuffer(), Config.AsyncSendReceiveEventInstance, OnReceived);
             }
             #region ///
             //if (mbrEventRecevicer == null)
@@ -137,8 +169,8 @@ namespace AsyncSocketer
         {
             if (mbrBufferRecevicer == null)
             {
-                mbrBufferRecevicer = new BufferManager(Config.MaxDataConnection);
-                mbrBufferRecevicer.ManagerIdentity = mbrReceverLocker + " mbrBufferRecevicer";
+                mbrBufferRecevicer = new BufferManager(Config.AsyncSendReceiveEventInstance);
+                mbrBufferRecevicer.ManagerIdentity = mbrReceverLocker + "_mbrBufferRecevicer";
             }
             return mbrBufferRecevicer;
         }
@@ -146,9 +178,9 @@ namespace AsyncSocketer
         {
             if (mbrEventSender == null)
             {
-                mbrEventSender = new EventPool(Config.MaxDataConnection);
+                mbrEventSender = new EventPool(Config.AsyncSendReceiveEventInstance);
                 mbrEventSender.PoolerIdentity = mbrSenderLocker + " mbrEventSender";
-                InitEventPooler(mbrEventSender, GetSendBuffer(), Config.MaxDataConnection, OnSended);
+                InitEventPooler(mbrEventSender, GetSendBuffer(), Config.AsyncSendReceiveEventInstance, OnSended);
             }
             #region ///
             //if (mbrEventSender == null)
@@ -190,7 +222,7 @@ namespace AsyncSocketer
         {
             if (mbrBufferSender == null)
             {
-                mbrBufferSender = new BufferManager(Config.MaxDataConnection);
+                mbrBufferSender = new BufferManager(Config.AsyncSendReceiveEventInstance);
                 mbrBufferSender.ManagerIdentity = mbrSenderLocker + " mbrBufferSender";
             }
             return mbrBufferSender;
@@ -199,9 +231,9 @@ namespace AsyncSocketer
         {
             if (mbrEventDisconnector == null)
             {
-                mbrEventDisconnector = new EventPool(Config.MaxDataConnection);
+                mbrEventDisconnector = new EventPool(Config.AsyncSendReceiveEventInstance);
                 mbrEventDisconnector.PoolerIdentity = " mbrEventDisconnector";
-                InitEventPooler(mbrEventDisconnector, GetDisonnectBuffer(), Config.MaxConnectCount, OnDisconnected);
+                InitEventPooler(mbrEventDisconnector, GetDisonnectBuffer(), Config.AsyncConnectEventInstance, OnDisconnected);
             }
             #region ///
             //if (mbrEventDisconnector == null)
@@ -243,10 +275,40 @@ namespace AsyncSocketer
         {
             if (mbrBufferDisconnector == null)
             {
-                mbrBufferDisconnector = new BufferManager(Config.MaxConnectCount,Config.ConnectBufferSize);
+                mbrBufferDisconnector = new BufferManager(Config.AsyncConnectEventInstance,Config.ConnectBufferSize);
                 mbrBufferDisconnector.ManagerIdentity = "mbrBufferConnector";
             }
             return mbrBufferDisconnector;
+        }
+        protected override Pooler<EventSocketer> GetAcceptInstancePooler()
+        {
+            if (mbrAcceptSocketor == null)
+            {
+                mbrAcceptSocketor = new Pooler<EventSocketer>(Config.AsyncSendReceiveEventInstance);
+                for (int i = 0; i < Config.AsyncSendReceiveEventInstance; i++)
+                {
+                    PartialSocket p = new PartialSocket(Config);
+                    p.Disconnected += (o, e) =>
+                    {
+                        DebugInfo("Client disconnected, recylic Socket");
+                        mbrAcceptSocketor.Pushin(p);
+                    };
+                }
+            }
+            return mbrAcceptSocketor;
+        }
+        public override EventSocketer New(SocketConfigure sc, Socket accept)
+        {
+            //ClientSocket = CreateClientSocket(accept);
+            //return base.New(sc, accept);
+            PartialSocket partial = new PartialSocket(sc);
+            partial.ClientSocket = CreateClientSocket(accept);
+            return partial;
+        }
+        public override EventSocketer New(Socket accept)
+        {
+            this.ClientSocket = CreateClientSocket(accept);
+            return this;
         }
         //protected override void ResetConnectAsyncEvents()
         //{

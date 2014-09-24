@@ -12,6 +12,7 @@
     <AssemblyName>AsyncSocketer</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -59,9 +60,6 @@
     <Compile Include="MixedSocket.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="PartialSocketServer.cs">
-      <SubType>Component</SubType>
-    </Compile>
     <Compile Include="PerformanceBase.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -75,6 +73,12 @@
   <ItemGroup>
     <None Include="claren.cmd" />
     <None Include="README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Projects\MSite\BiteLibrary\CollectionLibrary.csproj">
+      <Project>{4B32327A-0CD1-46A4-8A88-B33B23682AA8}</Project>
+      <Name>CollectionLibrary</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

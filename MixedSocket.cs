@@ -19,9 +19,9 @@ namespace AsyncSocketer
             {
                 Config = sc;
             }
-            SocketBuffer = new BufferManager(Config.MaxDataConnection);
-            SocketPooler = new EventPool(Config.MaxDataConnection);
-            for (int i = 0; i < Config.MaxDataConnection; i++)
+            SocketBuffer = new BufferManager(Config.AsyncSendReceiveEventInstance);
+            SocketPooler = new EventPool(Config.AsyncSendReceiveEventInstance);
+            for (int i = 0; i < Config.AsyncSendReceiveEventInstance; i++)
             {
                 SocketPooler.Push(NewSocket());
             }

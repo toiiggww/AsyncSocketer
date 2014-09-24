@@ -5,7 +5,7 @@ using System.Text;
 
 namespace AsyncSocketer
 {
-    class EventToken
+    public class EventToken
     {
         public int SessionID { get; private set; }
         public int CurrentIndex { get; private set; }

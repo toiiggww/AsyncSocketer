@@ -1,14 +1,16 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using CollectionLibrary;
 
 namespace AsyncSocketer
 {
     /// <summary>
     /// This is driverd from http://www.codeproject.com/Articles/83102/C-SocketAsyncEventArgs-High-Performance-Socket-Cod
     /// </summary>
-    public abstract class EventSocketer : PerformanceBase
+    public abstract class EventSocketer : PerformanceBase, IDentity
     {
         #region EventSystem
         protected object evtConnecting,
@@ -16,10 +18,8 @@ namespace AsyncSocketer
             evtSend,
             evtRecevie,
             evtDisconnected,
-            evtBeginAccept,
             evtAccepted,
             evtError;
-        public event SocketEventHandler BeginAccept { add { base.Events.AddHandler(evtBeginAccept, value); } remove { base.Events.RemoveHandler(evtBeginAccept, value); } }
         public event ServerSocketEventHandler Accepted { add { base.Events.AddHandler(evtAccepted, value); } remove { base.Events.RemoveHandler(evtAccepted, value); } }
         public event SocketEventHandler Connecting { add { base.Events.AddHandler(evtConnecting, value); } remove { base.Events.RemoveHandler(evtConnecting, value); } }
         public event SocketEventHandler AfterConnected { add { base.Events.AddHandler(evtConnected, value); } remove { base.Events.RemoveHandler(evtConnected, value); } }
@@ -62,28 +62,54 @@ namespace AsyncSocketer
             : this()
         {
             Config = sc;
-            mbrListenPoint = new IPEndPoint(Config.ListenAddress, Config.ListenPort);
+            mbrListenPoint = new IPEndPoint(Config.IPAddress, Config.Port);
             OutMessage = new MessagePool();
             IncommeMessage = new MessagePool();
             ClientSocket = CreateClientSocket();
             ClientSocket.Bind(mbrListenPoint);
         }
+        public virtual void Start()
+        {
+            InitLockers();
+            if (ClientSocket.Connected)
+            {
+                mbrWaitForDisconnect = true;
+                beginSendRec();
+            }
+            else if (Config.SocketType == EventSocketType.Client)
+            {
+                Connect();
+            }
+            else if (Config.SocketType == EventSocketType.Server)
+            {
+                mbrWaitForDisconnect = true;
+                Accept();
+            }
+        }
+        public virtual void Stop()
+        {
+            if (Config.SocketType == EventSocketType.Client)
+            {
+                Disconnect();
+            }
+            else if (Config.SocketType == EventSocketType.Server)
+            {
+                Close();
+            }
+        }
+        public virtual void Start(SocketConfigure sc)
+        {
+            Config = sc;
+            Start();
+        }
         public virtual void Connect(System.Net.IPAddress iPAddress, int p)
         {
-            Config.RemotePoint = new IPEndPoint(iPAddress, p);
+            Config.SocketPoint = new IPEndPoint(iPAddress, p);
             Connect();
         }
         public virtual void Connect()
         {
-            if (
-                mbrSenderLocker == null || string.IsNullOrEmpty(mbrSenderLocker.Trim()) ||
-                mbrReceverLocker == null || string.IsNullOrEmpty(mbrReceverLocker.Trim())
-                )
-            {
-                Random r = new Random();
-                r = new Random(r.Next() * 1000);
-                ClientIdentity = string.Format("DefaultIdnetity_{0:X}", r.Next() * 10000);
-            }
+            InitLockers();
             fireEvent(evtConnecting, null);
             SocketAsyncEventArgs e = GetConnectEventsPooler().Pop(Config);
             if (Config.SendDataOnConnected)
@@ -115,11 +141,25 @@ namespace AsyncSocketer
                 OnConnected(e);
             }
         }
+        private void InitLockers()
+        {
+            if (
+                mbrAcceptLocker == null || string.IsNullOrEmpty(mbrAcceptLocker.Trim()) ||
+                mbrSenderLocker == null || string.IsNullOrEmpty(mbrSenderLocker.Trim()) ||
+                mbrReceverLocker == null || string.IsNullOrEmpty(mbrReceverLocker.Trim())
+                )
+            {
+                Random r = new Random();
+                r = new Random(r.Next() * 1000);
+                ClientIdentity = string.Format("DefaultIdnetity_{0:X}", r.Next() * 10000);
+            }
+        }
         public virtual void Disconnect()
         {
             if (mbrWaitForDisconnect)
             {
                 SocketAsyncEventArgs e = GetDisconnectEventsPooler().Pop(Config);
+                //ClientSocket.Shutdown(SocketShutdown.Both);
                 if (!ClientSocket.Disconnect(e))
                 {
                     OnDisconnected(e);
@@ -137,19 +177,31 @@ namespace AsyncSocketer
             Disconnect();
             Connect();
         }
-        public virtual void Accetp() { }
+        public virtual void Accept()
+        {
+            Monitor.Enter(mbrAcceptLocker);
+            ClientSocket.Listen(Config.AsyncSendReceiveEventInstance);
+            while (mbrWaitForDisconnect)
+            {
+                SocketAsyncEventArgs e = GetAcceptEventsPooler().Pop(Config);
+                if (!ClientSocket.Accept(e))
+                {
+                    OnAccepted(e);
+                }
+            }
+            Monitor.Exit(mbrAcceptLocker);
+        }
+        public virtual void Close() { }
+        public virtual EventSocketer New(SocketConfigure sc) { throw new NotImplementedException(); }
+        public virtual EventSocketer New(Socket accept) { throw new NotImplementedException(); }
+        public virtual EventSocketer New(SocketConfigure sc, Socket accept) { throw new NotImplementedException(); }
         protected virtual void Receive()
         {
             Monitor.Enter(mbrReceverLocker);
-            int lostCount = 1024;
             while (mbrWaitForDisconnect)
             {
                 if (ClientSocket.Available > 0)
                 {
-                    if (lostCount != 1024)
-                    {
-                        lostCount = 1024;
-                    }
                     SocketAsyncEventArgs e = GetReceiveEventsPooler().Pop(Config);
                     if (!mbrWaitForDisconnect)
                     {
@@ -159,44 +211,19 @@ namespace AsyncSocketer
                     {
                         OnReceived(e);
                     }
-                    //DebugInfo(string.Format("[{0}] _ Wait for Receive Compleate", e.UserToken));
                 }
-                while (ClientSocket.SocketUnAvailable && lostCount > 0)
-                {
-                    lostCount--;
-                }
-                if (lostCount == 0)
-                {
-                    mbrWaitForDisconnect = false;
-                    DebugInfo("Connect disconnected");
-                    Disconnect();
-                    break;
-                }
+                if (ClientSocket.SocketUnAvailable) ;
             }
+            DebugInfo("Exit Receive");
             Monitor.Exit(mbrReceverLocker);
         }
         protected virtual void Send()
         {
             Monitor.Enter(mbrSenderLocker);
-            int lostCount = 1024;
             while (mbrWaitForDisconnect)
             {
                 MessageFragment m = OutMessage.GetMessage();
-                if (!mbrWaitForDisconnect)
-                {
-                    break;
-                }
-                while (ClientSocket.SocketUnAvailable && lostCount > 0)
-                {
-                    lostCount--;
-                }
-                if (lostCount == 0)
-                {
-                    mbrWaitForDisconnect = false;
-                    Disconnect();
-                    break;
-                }
-                ///
+                if (ClientSocket.SocketUnAvailable) ;
                 bool lSended = false;
                 int lOffset = 0;
                 while (!lSended)
@@ -212,27 +239,48 @@ namespace AsyncSocketer
                     e.SetBuffer(e.Offset, lSendByte);
                     Buffer.BlockCopy(m.Buffer, lOffset, e.Buffer, e.Offset, lSendByte);
                     lOffset += lSendByte;
-                    if (!ClientSocket.Send(e))
+                    try
                     {
-                        OnSended(e);
+                        if (!ClientSocket.Send(e))
+                        {
+                            OnSended(e);
+                        }
+                    }
+                    catch (Exception ce)
+                    {
+                        SocketErrorArgs er = new SocketErrorArgs(e);
+                        er.Operation = SocketAsyncOperation.Send;
+                        er.Exception = ce;
+                        fireEvent(evtError, er);
+                        if (!Config.OnErrorContinue)
+                        {
+                            mbrWaitForDisconnect = false;
+                            break;
+                        }
                     }
                 }
             }
+            DebugInfo("Exit Send");
             Monitor.Exit(mbrSenderLocker);
         }
         public SocketConfigure Config { get; set; }
-        public string ClientIdentity { set { mbrReceverLocker = "EventSocketer.Receive:" + value; mbrSenderLocker = "EventSocketer.Send:" + value; } }
+        public SocketConfigure TranslateConfig { get; set; }
+        public string ClientIdentity { set { mbrReceverLocker = "EventSocketer.Receive:" + value; mbrSenderLocker = "EventSocketer.Send:" + value; mbrAcceptLocker = "EventSocketer.Accept:" + value; } }
         public bool Connected { get { return Config.Protocol == ProtocolType.Tcp ? ClientSocket.Connected : mbrWaitForDisconnect; } }
         public virtual int PreparSendMessage(byte[] msg)
         {
             return OutMessage.PushMessage(msg);
         }
         public virtual int PreparSendMessage(string msg) { return PreparSendMessage(Config.Encoding.GetBytes(msg)); }
+        public EndPoint LocalEndPoint { get { return ClientSocket.ClientSocker.LocalEndPoint; } }
+        public EndPoint RemoteEndPoint { get { return ClientSocket.ClientSocker.RemoteEndPoint; } }
         protected MessagePool OutMessage { get; private set; }
         protected MessagePool IncommeMessage { get; private set; }
+        //protected EventSocketer TranslateSocket { get; set; }
         protected virtual ISocketer ClientSocket { get; set; }
-        protected string mbrReceverLocker, mbrSenderLocker;
+        protected string mbrReceverLocker, mbrSenderLocker, mbrAcceptLocker;
         protected IPEndPoint mbrListenPoint { get; private set; }
+        //protected virtual Pooler<EventSocketer> AccepteSocketPooler { get; set; }
         private bool mbrWaitForDisconnect;
         private Thread mbrSendThread, mbrReceiveThread;
         private void beginSendRec()
@@ -250,14 +298,14 @@ namespace AsyncSocketer
                 fireEvent(evtError, r);
             }
         }
-        internal void InitEventPooler(EventPool pooler, BufferManager buffers, int poolerCount, SocketEvents fun)
+        protected void InitEventPooler(EventPool pooler, BufferManager buffers, int poolerCount, SocketEvents fun)
         {
             if (pooler != null)
             {
                 for (int i = 0; i < poolerCount; i++)
                 {
                     SocketAsyncEventArgs e = new SocketAsyncEventArgs();
-                    e.RemoteEndPoint = Config.RemotePoint;
+                    e.RemoteEndPoint = Config.SocketPoint;
                     e.UserToken = new EventToken(pooler.NextTokenID, Config);
                     e.Completed += (o, x) =>
                     {
@@ -269,10 +317,7 @@ namespace AsyncSocketer
                                 return;
                             }
                         }
-                        else
-                        {
-                            fun(x);
-                        }
+                        fun(x);
                         x.SetBuffer(x.Offset, buffers.FragmentSize);
                         pooler.Push(x);
                     };
@@ -287,7 +332,36 @@ namespace AsyncSocketer
                 }
             }
         }
-        protected virtual ISocketer CreateClientSocket() { return ISocketer.CreateSocket(Config); }
+        protected void InitSocketPooler(Pooler<EventSocketer> pooler, EventSocketer socket, SocketEventHandler connect, SocketEventHandler send, SocketEventHandler recevie, SocketEventHandler disconnect)
+        {
+            if (pooler != null)
+            {
+                for (int i = 0; i < Config.MaxConnectCount; i++)
+                {
+                    EventSocketer e = socket.New(TranslateConfig);
+                    if (connect != null)
+                    {
+                        e.AfterConnected += connect;
+                    } if (send != null)
+                    {
+                        e.Sended += send;
+                    } if (recevie != null)
+                    {
+                        e.Recevied += recevie;
+                    } if (disconnect != null)
+                    {
+                        e.Disconnected += disconnect;
+                    }
+                    e.Disconnected += (o, x) =>
+                        {
+                            DebugInfo("Client Disconnected, Socket will be Recycled");
+                            pooler.Pushin(e);
+                        };
+                }
+            }
+        }
+        protected virtual ISocketer CreateClientSocket() { throw new NotImplementedException(); }
+        protected virtual ISocketer CreateClientSocket(Socket skt) { throw new NotImplementedException(); }
         protected virtual EventPool GetConnectEventsPooler() { throw new NotImplementedException(); }
         protected virtual EventPool GetReceiveEventsPooler() { throw new NotImplementedException(); }
         protected virtual EventPool GetSendEventsPooler() { throw new NotImplementedException(); }
@@ -298,6 +372,8 @@ namespace AsyncSocketer
         protected virtual BufferManager GetSendBuffer() { throw new NotImplementedException(); }
         protected virtual BufferManager GetDisonnectBuffer() { throw new NotImplementedException(); }
         protected virtual BufferManager GetAcceptBuffer() { throw new NotImplementedException(); }
+        protected virtual EventSocketer GetAcceptInstance() { throw new NotImplementedException(); }
+        protected virtual Pooler<EventSocketer> GetAcceptInstancePooler() { throw new NotImplementedException(); }
         protected virtual void OnSended(SocketAsyncEventArgs e)
         {
             if (e.SocketError != SocketError.Success)
@@ -405,19 +481,16 @@ namespace AsyncSocketer
             }
             OutMessage.ForceClose();
             mbrWaitForDisconnect = false;
-            ClientSocket.Shutdown(SocketShutdown.Both);
             SocketEventArgs a = new SocketEventArgs(e);
             fireEvent(evtDisconnected, a);
         }
-        protected virtual void OnBeginAccept(SocketAsyncEventArgs e)
-        {
-            //SocketAsyncEventArgs a = new SocketAsyncEventArgs(e);
-            fireEvent(evtBeginAccept, e);
-        }
         protected virtual void OnAccepted(SocketAsyncEventArgs e)
         {
-            //ServerSocketEventArgs a = new ServerSocketEventArgs(e);
-            fireEvent(evtAccepted, e);
+            EventSocketer t = GetAcceptInstance();
+            ServerSocketEventArgs a = new ServerSocketEventArgs(e);
+            a.AcceptSocket = t.New(TranslateConfig, e.AcceptSocket == null ? e.ConnectSocket : e.AcceptSocket);
+            fireEvent(evtAccepted, a);
+            t.Start();
         }
         protected virtual void ResetAll()
         {
@@ -433,6 +506,7 @@ namespace AsyncSocketer
         protected virtual void ResetDisconnectAsyncEvents() { GetDisconnectEventsPooler().ForceClose(); }
         protected virtual void ResetAcceptAsyncEvents() { GetAcceptEventsPooler().ForceClose(); }
 #if DEBUG
+        public bool DebugOutpu { get; set; }
         protected virtual int EventPoolerSizeConnect { get; private set; }
         protected virtual int EventPoolerSizeSend { get; private set; }
         protected virtual int EventPoolerSizeReceive { get; private set; }
@@ -442,8 +516,16 @@ namespace AsyncSocketer
         protected void DebugInfo(object o)
         {
 #if DEBUG
-            Debuger.DebugInfo(string.Format("msg:[{0}],EventPoolerSizeConnect:[{1}],EventPoolerSizeReceive:[{2}],EventPoolerSizeSend:[{3}],MessagePoolerSizeReceive:[{4}],MessagePoolerSizeSend:[{5}]", o, EventPoolerSizeConnect, EventPoolerSizeReceive, EventPoolerSizeSend, MessagePoolerSizeReceive, MessagePoolerSizeSend));
+            if (DebugOutpu)
+            {
+                Debuger.Loger.DebugInfo(string.Format("msg:[{0}],EventPoolerSizeConnect:[{1}],EventPoolerSizeReceive:[{2}],EventPoolerSizeSend:[{3}],MessagePoolerSizeReceive:[{4}],MessagePoolerSizeSend:[{5}]", o, EventPoolerSizeConnect, EventPoolerSizeReceive, EventPoolerSizeSend, MessagePoolerSizeReceive, MessagePoolerSizeSend));
+            }
 #endif
+        }
+        public int IDentity
+        {
+            get;
+            set;
         }
     }
 }

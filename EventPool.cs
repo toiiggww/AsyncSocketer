@@ -22,7 +22,12 @@ namespace AsyncSocketer
         public SocketAsyncEventArgs Pop(SocketConfigure config)
         {
             EventArgObject o = mbrPooler.Popup();
-            o.SocketEventArgs.RemoteEndPoint = config.RemotePoint;
+            while (o == null)
+            {
+                Console.WriteLine("Pooler is empty");
+                o = mbrPooler.Popup();
+            }
+            o.SocketEventArgs.RemoteEndPoint = config.SocketPoint;
             return o.SocketEventArgs;
         }
         public int Push(SocketAsyncEventArgs e)
