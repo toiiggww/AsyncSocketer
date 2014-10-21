@@ -82,6 +82,10 @@ namespace AsyncSocketer
             }
             else if (Config.SocketType == EventSocketType.Server)
             {
+                if (TransferConfig == null)
+                {
+                    throw new ArgumentNullException("EventSocketer.TransferConfig", "Must been seted");
+                }
                 mbrWaitForDisconnect = true;
                 Accept();
             }
@@ -181,8 +185,12 @@ namespace AsyncSocketer
         {
             Monitor.Enter(mbrAcceptLocker);
             ClientSocket.Listen(Config.AsyncSendReceiveEventInstance);
-            while (mbrWaitForDisconnect)
+            int i = 0;
+            //while (mbrWaitForDisconnect)
+            for (int j = 0; j < Config.AsyncSendReceiveEventInstance; j++)
             {
+                i++;
+                Console.Write(" " + (i / Config.AsyncSendReceiveEventInstance).ToString() + "_" + (i % Config.AsyncSendReceiveEventInstance).ToString());
                 SocketAsyncEventArgs e = GetAcceptEventsPooler().Pop(Config);
                 if (!ClientSocket.Accept(e))
                 {
@@ -264,7 +272,7 @@ namespace AsyncSocketer
             Monitor.Exit(mbrSenderLocker);
         }
         public SocketConfigure Config { get; set; }
-        public SocketConfigure TranslateConfig { get; set; }
+        public SocketConfigure TransferConfig { get; set; }
         public string ClientIdentity { set { mbrReceverLocker = "EventSocketer.Receive:" + value; mbrSenderLocker = "EventSocketer.Send:" + value; mbrAcceptLocker = "EventSocketer.Accept:" + value; } }
         public bool Connected { get { return Config.Protocol == ProtocolType.Tcp ? ClientSocket.Connected : mbrWaitForDisconnect; } }
         public virtual int PreparSendMessage(byte[] msg)
@@ -338,7 +346,7 @@ namespace AsyncSocketer
             {
                 for (int i = 0; i < Config.MaxConnectCount; i++)
                 {
-                    EventSocketer e = socket.New(TranslateConfig);
+                    EventSocketer e = socket.New(TransferConfig);
                     if (connect != null)
                     {
                         e.AfterConnected += connect;
@@ -372,7 +380,7 @@ namespace AsyncSocketer
         protected virtual BufferManager GetSendBuffer() { throw new NotImplementedException(); }
         protected virtual BufferManager GetDisonnectBuffer() { throw new NotImplementedException(); }
         protected virtual BufferManager GetAcceptBuffer() { throw new NotImplementedException(); }
-        protected virtual EventSocketer GetAcceptInstance() { throw new NotImplementedException(); }
+        protected virtual EventSocketer GetAcceptInstance() { return GetAcceptInstancePooler().Popup(); }
         protected virtual Pooler<EventSocketer> GetAcceptInstancePooler() { throw new NotImplementedException(); }
         protected virtual void OnSended(SocketAsyncEventArgs e)
         {
@@ -488,7 +496,7 @@ namespace AsyncSocketer
         {
             EventSocketer t = GetAcceptInstance();
             ServerSocketEventArgs a = new ServerSocketEventArgs(e);
-            a.AcceptSocket = t.New(TranslateConfig, e.AcceptSocket == null ? e.ConnectSocket : e.AcceptSocket);
+            a.AcceptSocket = t.New(TransferConfig, e.AcceptSocket == null ? e.ConnectSocket : e.AcceptSocket);
             fireEvent(evtAccepted, a);
             t.Start();
         }
