@@ -5,7 +5,7 @@ using System.Text;
 using System.Net.Sockets;
 using System.Net;
 
-namespace AsyncSocketer
+namespace TEArts.Networking.AsyncSocketer
 {
     public delegate void SocketEvents(SocketAsyncEventArgs e);
     public delegate void SocketEventHandler(object sender, SocketEventArgs e);

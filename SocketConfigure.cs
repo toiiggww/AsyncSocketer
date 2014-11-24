@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Net;
 
-namespace AsyncSocketer
+namespace TEArts.Networking.AsyncSocketer
 {
     public class SocketConfigure
     {

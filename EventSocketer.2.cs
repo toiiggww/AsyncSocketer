@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using CollectionLibrary;
+using TEArts.Etc.CollectionLibrary;
 
-namespace AsyncSocketer
+namespace TEArts.Networking.AsyncSocketer
 {
     /// <summary>
     /// This is driverd from http://www.codeproject.com/Articles/83102/C-SocketAsyncEventArgs-High-Performance-Socket-Cod

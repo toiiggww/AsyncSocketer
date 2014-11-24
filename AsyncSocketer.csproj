@@ -8,8 +8,8 @@
     <ProjectGuid>{0010EE36-E7BF-4423-8A51-C8689AAFD66B}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>AsyncSocketer</RootNamespace>
-    <AssemblyName>AsyncSocketer</AssemblyName>
+    <RootNamespace>TEArts.Networking.AsyncSocketer</RootNamespace>
+    <AssemblyName>TEArts.Networking.AsyncSocketer</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
@@ -75,7 +75,7 @@
     <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Projects\MSite\BiteLibrary\CollectionLibrary.csproj">
+    <ProjectReference Include="..\CollectionLibrary\CollectionLibrary.csproj">
       <Project>{4B32327A-0CD1-46A4-8A88-B33B23682AA8}</Project>
       <Name>CollectionLibrary</Name>
     </ProjectReference>

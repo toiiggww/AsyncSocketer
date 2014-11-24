@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Net.Sockets;
 
-namespace AsyncSocketer
+namespace TEArts.Networking.AsyncSocketer
 {
     public class PartialSocket : EventSocketer
     {

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 
-namespace AsyncSocketer
+namespace TEArts.Networking.AsyncSocketer
 {
     public interface IDentity
     {

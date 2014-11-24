@@ -7,7 +7,7 @@ using System.Net;
 using System.ComponentModel;
 using System.Threading;
 
-namespace AsyncSocketer
+namespace TEArts.Networking.AsyncSocketer
 {
     /// <summary>
     /// This is driverd from http://www.codeproject.com/Articles/83102/C-SocketAsyncEventArgs-High-Performance-Socket-Cod

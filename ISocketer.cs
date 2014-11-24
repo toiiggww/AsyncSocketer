@@ -2,7 +2,7 @@
 using System.Net;
 using System.Net.Sockets;
 
-namespace AsyncSocketer
+namespace TEArts.Networking.AsyncSocketer
 {
     public abstract class ISocketer
     {

@@ -5,7 +5,7 @@ using System.Text;
 using System.ComponentModel;
 using System.Threading;
 
-namespace AsyncSocketer
+namespace TEArts.Networking.AsyncSocketer
 {
     public class PerformanceBase : Component
     {
