@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Threading;
 
 namespace TEArts.Networking.AsyncSocketer
@@ -62,22 +58,73 @@ namespace TEArts.Networking.AsyncSocketer
         public int PerformanceAfterLimit { get; set; }
         public event SocketPerformanceHandler Performance { add { base.Events.AddHandler(evtPerformance, value); } remove { base.Events.RemoveHandler(evtPerformance, value); } }
         protected int
+            /// <summary>
+            /// // IncommeMessage Count
+            /// </summary>
             mbrPImsgC,          // IncommeMessage Count
+            /// <summary>
+            /// // OutMessage Count
+            /// </summary>
             mbrPOmsgC,          // OutMessage Count
+            /// <summary>
+            /// // Send Count
+            /// </summary>
             mbrPSendC,          // Send Count
+            /// <summary>
+            /// // Bytes
+            /// </summary>
             mbrPSendB,          // Bytes
+            /// <summary>
+            /// // Total Count
+            /// </summary>
             mbrPSendT,          // Total Count
+            /// <summary>
+            /// // Max Package length
+            /// </summary>
             mbrPSendM,          // Max Package length
+            /// <summary>
+            /// // Total Bytes
+            /// </summary>
             mbrPSendL,          // Total Bytes
+            /// <summary>
+            /// // Receve Count
+            /// </summary>
             mbrPReceiveC,       // Receve Count
+            /// <summary>
+            /// // Bytes
+            /// </summary>
             mbrPReceiveB,       // Bytes
+            /// <summary>
+            /// // Total Count
+            /// </summary>
             mbrPReceiveT,       // Total Count
+            /// <summary>
+            /// // Max Package length
+            /// </summary>
             mbrPReceiveM,       // Max Package length
+            /// <summary>
+            /// // Total Bytes
+            /// </summary>
             mbrPReceiveL,       // Total Bytes
+            /// <summary>
+            /// // Total Connect
+            /// </summary>
             mbrPConT,           // Total Connect
+            /// <summary>
+            /// // Connect fail
+            /// </summary>
             mbrPConF,           // Connect fail
+            /// <summary>
+            /// // Disconnect
+            /// </summary>
             mbrPDisC,           // Disconnect
+            /// <summary>
+            /// // Accept Count
+            /// </summary>
             mbrPAcpC,           // Accept Count
+            /// <summary>
+            /// // Errors
+            /// </summary>
             mbrPErrC;           // Errors
         protected bool mbrPerformanceEnabled;
         public bool EnablePerformance

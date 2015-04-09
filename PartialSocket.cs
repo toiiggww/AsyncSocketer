@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Net.Sockets;
+﻿using System.Net.Sockets;
 
 namespace TEArts.Networking.AsyncSocketer
 {
@@ -24,6 +20,10 @@ namespace TEArts.Networking.AsyncSocketer
             //mbrEventConnector = new EventPool(Config.MaxDataConnection);
             //mbrEventRecevicer = new EventPool(Config.MaxDataConnection);
             //mbrEventSender = new EventPool(3);
+        }
+        public PartialSocket(SocketConfigure sc, Socket skt)
+            : base(sc, skt)
+        {
         }
         protected override ISocketer CreateClientSocket()
         {
@@ -116,7 +116,7 @@ namespace TEArts.Networking.AsyncSocketer
         {
             if (mbrBufferConnector == null)
             {
-                mbrBufferConnector = new BufferManager(Config.AsyncConnectEventInstance,Config.ConnectBufferSize);
+                mbrBufferConnector = new BufferManager(Config.AsyncConnectEventInstance, Config.ConnectBufferSize);
                 mbrBufferConnector.ManagerIdentity = "mbrBufferConnector";
             }
             return mbrBufferConnector;
@@ -275,40 +275,43 @@ namespace TEArts.Networking.AsyncSocketer
         {
             if (mbrBufferDisconnector == null)
             {
-                mbrBufferDisconnector = new BufferManager(Config.AsyncConnectEventInstance,Config.ConnectBufferSize);
+                mbrBufferDisconnector = new BufferManager(Config.AsyncConnectEventInstance, Config.ConnectBufferSize);
                 mbrBufferDisconnector.ManagerIdentity = "mbrBufferConnector";
             }
             return mbrBufferDisconnector;
         }
-        protected override Pooler<EventSocketer> GetAcceptInstancePooler()
+        protected override EventSocketer GetAcceptInstance()
         {
-            if (mbrAcceptSocketor == null)
-            {
-                mbrAcceptSocketor = new Pooler<EventSocketer>(Config.AsyncSendReceiveEventInstance);
-                for (int i = 0; i < Config.AsyncSendReceiveEventInstance; i++)
-                {
-                    PartialSocket p = new PartialSocket(Config);
-                    p.Disconnected += (o, e) =>
-                    {
-                        DebugInfo("Client disconnected, recylic Socket");
-                        mbrAcceptSocketor.Pushin(p);
-                    };
-                }
-            }
-            return mbrAcceptSocketor;
+            return this;
         }
+        //protected override Pooler<EventSocketer> GetAcceptInstancePooler()
+        //{
+        //    if (mbrAcceptSocketor == null)
+        //    {
+        //        mbrAcceptSocketor = new Pooler<EventSocketer>(Config.AsyncSendReceiveEventInstance);
+        //        for (int i = 0; i < Config.AsyncSendReceiveEventInstance; i++)
+        //        {
+        //            PartialSocket p = new PartialSocket(TransferConfig);
+        //            p.Disconnected += (o, e) =>
+        //            {
+        //                DebugInfo("Client disconnected, recylic Socket");
+        //                mbrAcceptSocketor.Pushin(p);
+        //            };
+        //            mbrAcceptSocketor.Pushin(p);
+        //        }
+        //    }
+        //    return mbrAcceptSocketor;
+        //}
         public override EventSocketer New(SocketConfigure sc, Socket accept)
         {
             //ClientSocket = CreateClientSocket(accept);
             //return base.New(sc, accept);
-            PartialSocket partial = new PartialSocket(sc);
-            partial.ClientSocket = CreateClientSocket(accept);
+            PartialSocket partial = new PartialSocket(sc, accept);
             return partial;
         }
         public override EventSocketer New(Socket accept)
         {
-            this.ClientSocket = CreateClientSocket(accept);
-            return this;
+            return New(Config,accept);
         }
         //protected override void ResetConnectAsyncEvents()
         //{

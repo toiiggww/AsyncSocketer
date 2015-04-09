@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Net.Sockets;
-using System.Threading;
 
 namespace TEArts.Networking.AsyncSocketer
 {
@@ -33,6 +29,7 @@ namespace TEArts.Networking.AsyncSocketer
         public int Push(SocketAsyncEventArgs e)
         {
             EventArgObject o = new EventArgObject(e, mbrPooler.NextIndex);
+            TEArts.Etc.CollectionLibrary.Debuger.Loger.DebugInfo(o);
             return mbrPooler.Pushin(o);
         }
         public void ForceClose()
@@ -58,6 +55,10 @@ namespace TEArts.Networking.AsyncSocketer
             mbrIDentity = id;
             SocketEventArgs = e;
             (SocketEventArgs.UserToken as EventToken).EventID = id;
+        }
+        public override string ToString()
+        {
+            return string.Format("EventArgObject:[{0}]-[{2}]-[{1}]", mbrIDentity, SocketEventArgs.RemoteEndPoint, SocketEventArgs.LastOperation);
         }
     }
 }

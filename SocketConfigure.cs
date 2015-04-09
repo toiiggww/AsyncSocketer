@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Net;
+using System.Text;
 
 namespace TEArts.Networking.AsyncSocketer
 {
@@ -18,9 +16,16 @@ namespace TEArts.Networking.AsyncSocketer
         public int ConnectBufferSize { get; set; }
         public bool OnErrorContinue { get; set; }
         public bool SendDataOnConnected { get; set; }
+        public bool PreBind { get; set; }
+        public bool MoreInfo { get; set; }
+        public bool ThreadMode { get; set; }
         public EventSocketType SocketType { get; set; }
         public System.Net.Sockets.ProtocolType Protocol { get; set; }
         public IPAddress IPAddress { get; set; }
+        //public SocketEvents ConnectedCallBackForTransfer { get; set; }
+        //public SocketEvents SendCallBackForTransfer { get; set; }
+        //public SocketEvents ReceiveCallBackForTransfer { get; set; }
+        //public SocketEvents DisconnectCallBackForTransfer { get; set; }
         public IPEndPoint SocketPoint
         {
             get
@@ -55,11 +60,12 @@ namespace TEArts.Networking.AsyncSocketer
             BufferSize = 4916;
             OnErrorContinue = true;
             AsyncConnectEventInstance = 3;
-            SendDataOnConnected = false;
+            SendDataOnConnected = true;
             Port = 0;
             ConnectBufferSize = 4;
             SocketType = EventSocketType.Client;
             IPAddress = IPAddress.Any;
+            PreBind = true;
         }
     }
     public enum EventSocketType { Server = 1, Client=2, Both = 3 }

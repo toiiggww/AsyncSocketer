@@ -22,7 +22,7 @@ namespace TEArts.Networking.AsyncSocketer
                 ClientSocker = skt;
             }
             SetTimeOut();
-            ClientSocker.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            //ClientSocker.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             ClientSocker.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, Config.SocketType == EventSocketType.Server);
         }
         protected SocketConfigure Config { get; private set; }
@@ -34,6 +34,12 @@ namespace TEArts.Networking.AsyncSocketer
             {
                 ClientSocker.SendTimeout = Config.TimeOut * 1000;
                 ClientSocker.ReceiveTimeout = Config.TimeOut * 1000;
+            }
+            if (Config.Protocol == ProtocolType.Tcp)
+            {
+                ClientSocker.LingerState.Enabled = true;
+                ClientSocker.LingerState.LingerTime = 60;
+                //ClientSocker.SetSocketOption( SocketOptionLevel.Tcp, SocketOptionName)
             }
         }
         public virtual bool Connect(SocketAsyncEventArgs e)
@@ -73,7 +79,7 @@ namespace TEArts.Networking.AsyncSocketer
                 {
                     try
                     {
-                        mbrSocketUnAvailable = ClientSocker.Poll(10, SelectMode.SelectRead);
+                        mbrSocketUnAvailable = ClientSocker.Poll(100, SelectMode.SelectRead);
                     }
                     catch { mbrSocketUnAvailable = true; }
                 }
@@ -100,7 +106,7 @@ namespace TEArts.Networking.AsyncSocketer
             }
             return ClientSocker.IsBound;
         }
-        public void Listen(int blocking)
+        public virtual void Listen(int blocking)
         {
             ClientSocker.Listen(blocking);
         }
@@ -170,6 +176,10 @@ namespace TEArts.Networking.AsyncSocketer
         public override bool Accept(SocketAsyncEventArgs e)
         {
             return ClientSocker.ReceiveFromAsync(e);
+        }
+        public override void Listen(int blocking)
+        {
+            //ClientSocker.ReceiveAsync(new SocketAsyncEventArgs());
         }
         protected override Socket CreateSocket()
         {
