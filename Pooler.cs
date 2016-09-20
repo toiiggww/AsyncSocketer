@@ -21,11 +21,12 @@ namespace TEArts.Networking.AsyncSocketer
             while (mbrPooler.Count == 0)
             {
                 Console.Write("[W1]");
-                mbrEmptyLocker.Reset();
+                //mbrEmptyLocker.Reset();
                 mbrEmptyLocker.WaitOne();
                 if (mbrForAbort)
                 {
-                    Thread.CurrentThread.Abort();
+                    try { Thread.CurrentThread.Abort(); } catch { }
+                    break;
                 }
             }
             return mbrPooler.Dequeue();

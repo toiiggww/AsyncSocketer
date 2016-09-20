@@ -19,6 +19,7 @@ namespace TEArts.Networking.AsyncSocketer
         public bool PreBind { get; set; }
         public bool MoreInfo { get; set; }
         public bool ThreadMode { get; set; }
+        public bool EnableTimeoutCheck { get; set; }
         public EventSocketType SocketType { get; set; }
         public System.Net.Sockets.ProtocolType Protocol { get; set; }
         public IPAddress IPAddress { get; set; }
@@ -26,33 +27,56 @@ namespace TEArts.Networking.AsyncSocketer
         //public SocketEvents SendCallBackForTransfer { get; set; }
         //public SocketEvents ReceiveCallBackForTransfer { get; set; }
         //public SocketEvents DisconnectCallBackForTransfer { get; set; }
-        public IPEndPoint SocketPoint
-        {
-            get
-            {
-                if (mbrLocalPoint != null && IPAddress != null && mbrLocalPoint.Address == IPAddress && mbrLocalPoint.Port == Port)
-                {
-                    return mbrLocalPoint;
-                }
-                else if (IPAddress != null && -1 < Port && Port < 65535)
-                {
-                    mbrLocalPoint = new IPEndPoint(IPAddress, Port);
-                    return mbrLocalPoint;
-                }
-                else
-                {
-                    throw new ArgumentNullException("RemoteAddress, RemotePort");
-                }
-            }
-            set
-            {
-                mbrLocalPoint = value;
-                Port = value.Port;
-                IPAddress = value.Address;
-            }
-        }
+        public IPEndPoint LocalSocketPoint { get; set; }
+        public IPEndPoint RemoteSocketPoint { get; set; }
+        //{
+        //    get
+        //    {
+        //        if (SocketType == EventSocketType.Server)
+        //        {
+        //            if (mbrLocalPoint != null && IPAddress != null && mbrLocalPoint.Address == IPAddress && mbrLocalPoint.Port == Port)
+        //            {
+        //                return mbrLocalPoint;
+        //            }
+        //            else if (IPAddress != null && -1 < Port && Port < 65535)
+        //            {
+        //                mbrLocalPoint = new IPEndPoint(IPAddress, Port);
+        //            }
+        //            else
+        //            {
+        //                throw new ArgumentNullException("RemoteAddress, RemotePort");
+        //            }
+        //        }
+        //        else
+        //        {
+        //            Port = 0;
+        //            if (mbrLocalPoint == null)
+        //            {
+        //                mbrLocalPoint = new IPEndPoint(IPAddress, Port);
+        //            }
+        //            else
+        //            {
+        //                mbrLocalPoint.Port = Port;
+        //            }
+        //        }
+        //        return mbrLocalPoint;
+        //    }
+        //    set
+        //    {
+        //        mbrLocalPoint = value;
+        //        if (SocketType == EventSocketType.Server)
+        //        {
+        //            Port = value.Port;
+        //        }
+        //        else
+        //        {
+        //            Port = 0;
+        //        }
+        //        IPAddress = value.Address;
+        //    }
+        //}
         private Encoding mbrEncoding = Encoding.UTF8;
-        private IPEndPoint mbrRemotePoint,mbrLocalPoint;
+        //private IPEndPoint mbrRemotePoint,mbrLocalPoint;
         public Encoding Encoding { get { return mbrEncoding; } set { if (mbrEncoding != value) mbrEncoding = value; } }
         public SocketConfigure()
         {
@@ -61,11 +85,13 @@ namespace TEArts.Networking.AsyncSocketer
             OnErrorContinue = true;
             AsyncConnectEventInstance = 3;
             SendDataOnConnected = true;
-            Port = 0;
+            //Port = 0;
             ConnectBufferSize = 4;
             SocketType = EventSocketType.Client;
             IPAddress = IPAddress.Any;
             PreBind = true;
+            EnableTimeoutCheck = true;
+            TimeOut = 300;
         }
     }
     public enum EventSocketType { Server = 1, Client=2, Both = 3 }

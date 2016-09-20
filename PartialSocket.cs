@@ -39,13 +39,39 @@ namespace TEArts.Networking.AsyncSocketer
         }
         protected override ISocketer CreateClientSocket(Socket skt)
         {
-            if (Config.Protocol == ProtocolType.Tcp)
+            if (skt != null)
             {
-                return TcpSocketer.CreateSocket(Config, skt);
+                if (skt.ProtocolType == ProtocolType.Tcp)
+                {
+                    return TcpSocketer.CreateSocket(Config, skt);
+                }
+                else if (skt.ProtocolType == ProtocolType.Udp)
+                {
+                    return UdpSocketer.CreateSocket(Config, skt);
+                }
+                else return new ISocketer(Config, skt);
             }
-            else if (Config.Protocol == ProtocolType.Udp)
+            else if ((Config.SocketType & EventSocketType.Client) == EventSocketType.Client)
             {
-                return UdpSocketer.CreateSocket(Config, skt);
+                if (Config.Protocol == ProtocolType.Tcp)
+                {
+                    return TcpSocketer.CreateSocket(Config, skt);
+                }
+                else if (Config.Protocol == ProtocolType.Udp)
+                {
+                    return UdpSocketer.CreateSocket(Config, skt);
+                }
+            }
+            else
+            {
+                if (skt.ProtocolType == ProtocolType.Tcp)
+                {
+                    return TcpSocketer.CreateSocket(Config, skt);
+                }
+                else if (skt.ProtocolType == ProtocolType.Udp)
+                {
+                    return UdpSocketer.CreateSocket(Config, skt);
+                }
             }
             return base.CreateClientSocket(skt);
         }

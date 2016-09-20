@@ -4,7 +4,7 @@ using System.Net.Sockets;
 
 namespace TEArts.Networking.AsyncSocketer
 {
-    public abstract class ISocketer
+    public class ISocketer
     {
         public ISocketer(SocketConfigure cfg)
         {
@@ -35,12 +35,12 @@ namespace TEArts.Networking.AsyncSocketer
                 ClientSocker.SendTimeout = Config.TimeOut * 1000;
                 ClientSocker.ReceiveTimeout = Config.TimeOut * 1000;
             }
-            if (Config.Protocol == ProtocolType.Tcp)
-            {
-                ClientSocker.LingerState.Enabled = true;
-                ClientSocker.LingerState.LingerTime = 60;
-                //ClientSocker.SetSocketOption( SocketOptionLevel.Tcp, SocketOptionName)
-            }
+            LingerOption lin = new LingerOption(true, 60);
+            //if (Config.Protocol == ProtocolType.Tcp)
+            //{
+            ClientSocker.LingerState = lin;
+            //    //ClientSocker.SetSocketOption( SocketOptionLevel.Tcp, SocketOptionName)
+            //}
         }
         public virtual bool Connect(SocketAsyncEventArgs e)
         {
@@ -52,9 +52,17 @@ namespace TEArts.Networking.AsyncSocketer
         }
         public virtual bool Disconnect(SocketAsyncEventArgs e)
         {
-            bool r = ClientSocker.DisconnectAsync(e);
-            Shutdown(SocketShutdown.Both);
-            return r;
+            try
+            {
+                bool r = ClientSocker.DisconnectAsync(e);
+                Shutdown(SocketShutdown.Both);
+                ClientSocker = null;
+                return r;
+            }
+            catch
+            {
+                return false;
+            }
         }
         public virtual bool Receive(SocketAsyncEventArgs e)
         {
@@ -65,13 +73,13 @@ namespace TEArts.Networking.AsyncSocketer
             return ClientSocker.SendAsync(e);
         }
         public AddressFamily AddressFamily { get { return ClientSocker.AddressFamily; } }
-        public bool Connected { get { return ClientSocker.Connected; } }
+        public bool Connected { get { return ClientSocker != null && ClientSocker.Connected; } }
         public void Shutdown(SocketShutdown socketShutdown)
         {
-            ClientSocker.Shutdown(socketShutdown);
-            ClientSocker.Close();
+            try { ClientSocker.Shutdown(socketShutdown); } catch { }
+            ClientSocker.Close(20);
         }
-        public virtual bool SocketUnAvailable
+        public virtual bool CanRead
         {
             get
             {
@@ -83,7 +91,19 @@ namespace TEArts.Networking.AsyncSocketer
                     }
                     catch { mbrSocketUnAvailable = true; }
                 }
-                return mbrSocketUnAvailable;
+                return Available > 0;
+            }
+        }
+        public virtual bool CanWrite
+        {
+            get
+            {
+                try
+                {
+                    mbrSocketUnAvailable = ClientSocker.Poll(100, SelectMode.SelectWrite);
+                }
+                catch { mbrSocketUnAvailable = true; }
+                return true;
             }
         }
         public virtual int Available { get { try { return ClientSocker == null ? -1 : ClientSocker.Available; } catch { return -2; } } }
@@ -124,7 +144,7 @@ namespace TEArts.Networking.AsyncSocketer
         }
         protected override Socket CreateSocket()
         {
-            return new Socket(Config.SocketPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            return new Socket(Config.RemoteSocketPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         }
         public static ISocketer CreateSocket(SocketConfigure Config)
         {
@@ -145,7 +165,7 @@ namespace TEArts.Networking.AsyncSocketer
             : base(cfg, skt)
         {
         }
-        public override bool SocketUnAvailable
+        public override bool CanRead
         {
             get
             {
@@ -183,7 +203,7 @@ namespace TEArts.Networking.AsyncSocketer
         }
         protected override Socket CreateSocket()
         {
-            return new Socket(Config.SocketPoint.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+            return new Socket(Config.RemoteSocketPoint.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
         }
         public static ISocketer CreateSocket(SocketConfigure Config)
         {

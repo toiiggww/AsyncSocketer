@@ -41,7 +41,7 @@ namespace TEArts.Networking.AsyncSocketer
         public static string FormatArrayMatrix(byte[] array)
         {
             string r = "";
-            if (r == null)
+            if (array == null)
             {
                 return r;
             }

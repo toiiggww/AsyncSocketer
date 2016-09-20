@@ -23,7 +23,7 @@ namespace TEArts.Networking.AsyncSocketer
                 Console.WriteLine("Pooler is empty");
                 o = mbrPooler.Popup();
             }
-            o.SocketEventArgs.RemoteEndPoint = config.SocketPoint;
+            o.SocketEventArgs.RemoteEndPoint = config.RemoteSocketPoint;
             return o.SocketEventArgs;
         }
         public int Push(SocketAsyncEventArgs e)
