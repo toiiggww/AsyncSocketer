@@ -1,4 +1,5 @@
 ﻿using System;
+using TEArts.Etc.CollectionLibrary;
 
 namespace TEArts.Networking.AsyncSocketer
 {
@@ -39,10 +40,21 @@ namespace TEArts.Networking.AsyncSocketer
         {
             return mbrPooler.Popup();
         }
+        public MessageFragment[] Messages { get { return mbrPooler.Items; } }
         #endregion
         internal void ForceClose()
         {
             mbrPooler.AbortWait();
+        }
+        public override string ToString()
+        {
+            string bit = string.Empty;
+            MessageFragment[] ms = Messages;
+            for (int i = 0; i < ms.Length; i++)
+            {
+                bit = string.Format("{0}{1}Index : {2}, Values : {1}{3}", bit, Environment.NewLine, i, ms[i]);
+            }
+            return string.Format("MessageFragment Count : {0}, Messages :{1}{2}", Count, Environment.NewLine, bit);
         }
     }
 }

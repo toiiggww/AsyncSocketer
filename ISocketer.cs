@@ -55,8 +55,8 @@ namespace TEArts.Networking.AsyncSocketer
             try
             {
                 bool r = ClientSocker.DisconnectAsync(e);
-                Shutdown(SocketShutdown.Both);
-                ClientSocker = null;
+                //Shutdown(SocketShutdown.Both);
+                //ClientSocker = null;
                 return r;
             }
             catch
@@ -87,7 +87,7 @@ namespace TEArts.Networking.AsyncSocketer
                 {
                     try
                     {
-                        mbrSocketUnAvailable = ClientSocker.Poll(100, SelectMode.SelectRead);
+                        mbrSocketUnAvailable = ClientSocker.Poll(10, SelectMode.SelectRead);
                     }
                     catch { mbrSocketUnAvailable = true; }
                 }
@@ -100,7 +100,7 @@ namespace TEArts.Networking.AsyncSocketer
             {
                 try
                 {
-                    mbrSocketUnAvailable = ClientSocker.Poll(100, SelectMode.SelectWrite);
+                    mbrSocketUnAvailable = ClientSocker.Poll(10, SelectMode.SelectWrite);
                 }
                 catch { mbrSocketUnAvailable = true; }
                 return true;

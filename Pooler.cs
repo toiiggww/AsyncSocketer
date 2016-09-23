@@ -21,15 +21,24 @@ namespace TEArts.Networking.AsyncSocketer
             while (mbrPooler.Count == 0)
             {
                 Console.Write("[W1]");
-                //mbrEmptyLocker.Reset();
+                mbrEmptyLocker.Reset();
                 mbrEmptyLocker.WaitOne();
                 if (mbrForAbort)
                 {
-                    try { Thread.CurrentThread.Abort(); } catch { }
-                    break;
+                    return default(TEArtType);
                 }
             }
-            return mbrPooler.Dequeue();
+            try { return mbrPooler.Dequeue(); }
+            catch { return default(TEArtType); }
+        }
+        public TEArtType[] Items
+        {
+            get
+            {
+                TEArtType[] i = new TEArtType[mbrPooler.Count];
+                mbrPooler.CopyTo(i, 0);
+                return i;
+            }
         }
         public int Pushin(TEArtType tt)
         {
@@ -53,7 +62,7 @@ namespace TEArts.Networking.AsyncSocketer
                 return Interlocked.Increment(ref mbrIndexer);
             }
         }
-        public int CurrentSize { get { return mbrPooler.Count; } }
+        public int CurrentSize { get { return mbrPooler == null ? -1 : mbrPooler.Count; } }
         public Pooler(int size, int index, int max)
         {
             mbrPooler = new Queue<TEArtType>(size);

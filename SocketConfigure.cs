@@ -94,5 +94,5 @@ namespace TEArts.Networking.AsyncSocketer
             TimeOut = 300;
         }
     }
-    public enum EventSocketType { Server = 1, Client=2, Both = 3 }
+    public enum EventSocketType { Server = 1, Client=2, Both = 3, Accepted = 4 }
 }

@@ -29,14 +29,14 @@ namespace TEArts.Networking.AsyncSocketer
         public int Push(SocketAsyncEventArgs e)
         {
             EventArgObject o = new EventArgObject(e, mbrPooler.NextIndex);
-            TEArts.Etc.CollectionLibrary.Debuger.Loger.DebugInfo(o);
+            //TEArts.Etc.CollectionLibrary.Debuger.Loger.DebugInfo(o);
             return mbrPooler.Pushin(o);
         }
         public void ForceClose()
         {
             mbrPooler.AbortWait();
         }
-        public int Count { get { return mbrPooler.CurrentSize; } }
+        public int Count { get { return mbrPooler == null ? -1 : mbrPooler.CurrentSize; } }
     }
     internal class EventArgObject : IDentity
     {

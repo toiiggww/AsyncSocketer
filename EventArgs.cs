@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
+using System.Text;
 
 namespace TEArts.Networking.AsyncSocketer
 {
@@ -144,10 +146,34 @@ namespace TEArts.Networking.AsyncSocketer
         public int Errors { get; set; }
         public TimeSpan MaxSendTime { get; set; }
         public TimeSpan MaxReceiveTime { get; set; }
+        public static string ToString(EventArgs e)
+        {
+            string r = string.Empty;
+
+            PropertyInfo[] ps = e.GetType().GetProperties(BindingFlags.Public & BindingFlags.GetProperty);
+            StringBuilder sb = new StringBuilder();
+            foreach (PropertyInfo p in ps)
+            {
+                sb.AppendFormat("{0}\t{1}{2}", p.Name, p.GetValue(e, null), Environment.NewLine);
+            }
+            r = sb.ToString();
+            sb.Clear();
+            sb = null;
+
+            return r;
+        }
+        public override string ToString()
+        {
+            return ToString(this);
+        }
     }
     public class ServerPerformanceCountArgs : PerformanceCountArgs
     {
         public int AcceptedCount { get; set; }
         public int AcceptedError { get; set; }
+        public override string ToString()
+        {
+            return ToString(this);
+        }
     }
 }

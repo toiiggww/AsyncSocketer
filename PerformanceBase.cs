@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Threading;
+using TEArts.Etc.CollectionLibrary;
 
 namespace TEArts.Networking.AsyncSocketer
 {
@@ -39,6 +40,10 @@ namespace TEArts.Networking.AsyncSocketer
         }
         protected virtual void fireEvent(object evt, object e)
         {
+            //if (e != null)
+            //{
+            //    Debuger.Loger.DebugInfo(DebugType.FuncationCall, e.ToString());
+            //}
             if (evt != null)
             {
                 object o = base.Events[evt];

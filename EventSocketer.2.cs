@@ -57,6 +57,7 @@ namespace TEArts.Networking.AsyncSocketer
             evtError = new object();
             mbrSendThread = new Thread(new ThreadStart(Send));
             mbrReceiveThread = new Thread(new ThreadStart(Receive));
+            mbrPerformanceEnabled = true;
         }
         protected EventSocketer(SocketConfigure sc)
             : this()
@@ -71,11 +72,21 @@ namespace TEArts.Networking.AsyncSocketer
         private void initComponts(SocketConfigure sc, Socket skt)
         {
             Config = sc;
-            mbrListenPoint = new IPEndPoint(Config.IPAddress, (sc.SocketType == EventSocketType.Server ? Config.Port : 0));
-            sc.LocalSocketPoint = mbrListenPoint;
-            sc.RemoteSocketPoint = new IPEndPoint(Config.IPAddress, Config.Port);
-            OutMessage = new MessagePool();
-            IncommeMessage = new MessagePool();
+            if (mbrListenPoint == null && sc.LocalSocketPoint == null)
+            {
+                mbrListenPoint = new IPEndPoint(Config.IPAddress, (sc.SocketType == EventSocketType.Server ? Config.Port : 0));
+                sc.LocalSocketPoint = mbrListenPoint;
+            }
+            else
+            {
+                mbrListenPoint = sc.LocalSocketPoint;
+            }
+            if (sc.RemoteSocketPoint == null)
+            {
+                sc.RemoteSocketPoint = new IPEndPoint(Config.IPAddress, Config.Port);
+            }
+            OutMessage = new MessagePool(128);
+            IncommeMessage = new MessagePool(12800);
             if (skt == null)
             {
                 ClientSocket = CreateClientSocket();
@@ -240,7 +251,7 @@ namespace TEArts.Networking.AsyncSocketer
                         OnReceived(e);
                     }
                 }
-                Thread.Sleep(10);
+                Thread.Sleep(5);
             }
             DebugInfo("Exit Receive");
             Monitor.Exit(mbrReceverLocker);
@@ -257,19 +268,19 @@ namespace TEArts.Networking.AsyncSocketer
                     catch { }
                     break;
                 }
-                if (ClientSocket.CanWrite)
+                if (ClientSocket.CanWrite && m != null)
                 {
                     bool lSended = false;
                     int lOffset = 0;
                     while (!lSended)
                     {
                         SocketAsyncEventArgs e = GetSendEventsPooler().Pop(Config);
-                        lSended = m.Buffer.Length < e.Count;
-                        int lSendByte = m.Buffer.Length >= e.Count ? e.Count : m.Buffer.Length;
                         if (!mbrWaitForDisconnect)
                         {
                             break;
                         }
+                        lSended = m.Buffer.Length < e.Count;
+                        int lSendByte = m.Buffer.Length >= e.Count ? e.Count : m.Buffer.Length;
                         (e.UserToken as EventToken).MessageID = m.IDentity;
                         e.SetBuffer(e.Offset, lSendByte);
                         Buffer.BlockCopy(m.Buffer, lOffset, e.Buffer, e.Offset, lSendByte);
@@ -302,14 +313,44 @@ namespace TEArts.Networking.AsyncSocketer
         public SocketConfigure Config { get; set; }
         public SocketConfigure TransferConfig { get; set; }
         public string ClientIdentity { set { mbrReceverLocker = "EventSocketer.Receive:" + value; mbrSenderLocker = "EventSocketer.Send:" + value; mbrAcceptLocker = "EventSocketer.Accept:" + value; } }
-        public bool Connected { get { return ClientSocket == null && Config.Protocol == ProtocolType.Tcp ? ClientSocket.Connected : mbrWaitForDisconnect; } }
+        public bool Connected
+        {
+            get
+            {
+                bool b = ClientSocket != null;
+                b &= Config.SocketType == EventSocketType.Accepted;
+                bool c = ClientSocket.ClientSocker != null;
+                c &= ClientSocket.Connected;
+                b = b |= c;
+                return b;
+            }
+        }
+        private MessagePool OutMessageBack { get; set; }
         public virtual int PreparSendMessage(byte[] msg)
         {
+            if (OutMessageBack == null)
+            {
+                OutMessageBack = new MessagePool(10);
+            }
+            //try
+            //{
+            //    if (!Connected)
+            //    {
+            //        //throw new SocketException(((int)(SocketError.NotConnected)));
+            //        Debuger.Loger.DebugInfo(DebugType.Error, "NotConnected");
+            //    }
+            //    Debuger.Loger.DebugInfo(DebugType.Error, RemoteEndPoint.ToString());
+            //}
+            //catch (Exception ex)
+            //{
+            //    Debuger.Loger.DebugInfo(DebugType.Error, ex.ToString());
+            //}
+            OutMessageBack.PushMessage(msg);
             return OutMessage.PushMessage(msg);
         }
         public virtual int PreparSendMessage(string msg) { return PreparSendMessage(Config.Encoding.GetBytes(msg)); }
-        public EndPoint LocalEndPoint { get { return ClientSocket.ClientSocker.LocalEndPoint; } }
-        public EndPoint RemoteEndPoint { get { return ClientSocket.ClientSocker.RemoteEndPoint; } }
+        public EndPoint LocalEndPoint { get { return ClientSocket.ClientSocker == null ? null : ClientSocket.ClientSocker.LocalEndPoint; } }
+        public EndPoint RemoteEndPoint { get { return ClientSocket.ClientSocker == null ? null : ClientSocket.ClientSocker.RemoteEndPoint; } }
         protected MessagePool OutMessage { get; private set; }
         protected MessagePool IncommeMessage { get; private set; }
         //protected EventSocketer TranslateSocket { get; set; }
@@ -353,7 +394,14 @@ namespace TEArts.Networking.AsyncSocketer
                                 return;
                             }
                         }
-                        try { fun(x); }catch(Exception ex) { Debuger.Loger.DebugInfo(DebugType.Error, ex.ToString()); }
+                        try
+                        {
+                            fun(x);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debuger.Loger.DebugInfo(DebugType.Error, ex.ToString());
+                        }
                         x.SetBuffer(x.Offset, buffers.FragmentSize);
                         pooler.Push(x);
                     };
@@ -378,13 +426,16 @@ namespace TEArts.Networking.AsyncSocketer
                     if (connect != null)
                     {
                         e.AfterConnected += connect;
-                    } if (send != null)
+                    }
+                    if (send != null)
                     {
                         e.Sended += send;
-                    } if (recevie != null)
+                    }
+                    if (recevie != null)
                     {
                         e.Recevied += recevie;
-                    } if (disconnect != null)
+                    }
+                    if (disconnect != null)
                     {
                         e.Disconnected += disconnect;
                     }
@@ -472,8 +523,12 @@ namespace TEArts.Networking.AsyncSocketer
             Config.RemoteSocketPoint = e.RemoteEndPoint as IPEndPoint;
             SocketEventArgs a = new SocketEventArgs(e);
             fireEvent(evtConnected, a);
-            mbrWaitForDisconnect = (e.ConnectSocket == null ? (!ClientSocket.CanRead) : e.ConnectSocket.Connected);
-            beginSendRec();
+            //mbrWaitForDisconnect = (e.ConnectSocket == null ? (!ClientSocket.CanRead) : e.ConnectSocket.Connected);
+            mbrWaitForDisconnect = e.ConnectSocket != null && e.ConnectSocket.Connected;
+            if (mbrWaitForDisconnect)
+            {
+                beginSendRec();
+            }
         }
         protected virtual void OnError(SocketAsyncEventArgs x)
         {
@@ -516,6 +571,7 @@ namespace TEArts.Networking.AsyncSocketer
             {
                 mbrPDisC++;
             }
+            ClientSocket.Shutdown(SocketShutdown.Send);
             mbrWaitForDisconnect = false;
             SocketEventArgs a = new SocketEventArgs(e);
             fireEvent(evtDisconnected, a);
@@ -547,6 +603,16 @@ namespace TEArts.Networking.AsyncSocketer
         protected virtual void ResetSendAsyncEvents() { GetSendEventsPooler().ForceClose(); }
         protected virtual void ResetDisconnectAsyncEvents() { GetDisconnectEventsPooler().ForceClose(); }
         protected virtual void ResetAcceptAsyncEvents() { GetAcceptEventsPooler().ForceClose(); }
+        public void PrintBuffer()
+        {
+            Debuger.Loger.DebugInfo("------++++ IncommeMessage ++++------");
+            Debuger.Loger.DebugInfo(DebugType.Debug, IncommeMessage.ToString());
+            Debuger.Loger.DebugInfo("------++++   OutMessage   ++++------");
+            Debuger.Loger.DebugInfo(DebugType.Debug, OutMessage.ToString());
+            Debuger.Loger.DebugInfo("------++++ OutMessageBack ++++------");
+            Debuger.Loger.DebugInfo(DebugType.Debug, OutMessageBack.ToString());
+            Debuger.Loger.DebugInfo("------++++       End      ++++------");
+        }
 #if DEBUG
         public bool DebugOutpu { get; set; }
         protected virtual int EventPoolerSizeConnect { get; private set; }
@@ -554,6 +620,7 @@ namespace TEArts.Networking.AsyncSocketer
         protected virtual int EventPoolerSizeReceive { get; private set; }
         protected virtual int MessagePoolerSizeReceive { get; private set; }
         protected virtual int MessagePoolerSizeSend { get; private set; }
+
 #endif
         protected void DebugInfo(object o)
         {

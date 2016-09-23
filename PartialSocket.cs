@@ -368,7 +368,7 @@ namespace TEArts.Networking.AsyncSocketer
         //    }
         //}
 #if DEBUG
-        protected override int EventPoolerSizeConnect { get { return mbrEventDisconnector == null ? -1 : mbrEventConnector.Count; } }
+        protected override int EventPoolerSizeConnect { get { return mbrEventDisconnector == null ? -1 : mbrEventDisconnector.Count; } }
         protected override int EventPoolerSizeReceive { get { return mbrEventRecevicer == null ? -1 : mbrEventRecevicer.Count; } }
         protected override int EventPoolerSizeSend { get { return mbrEventSender == null ? -1 : mbrEventSender.Count; } }
         protected override int MessagePoolerSizeReceive { get { return mbrBufferRecevicer == null ? -1 : mbrBufferRecevicer.Count; } }
