@@ -83,15 +83,14 @@ namespace TEArts.Networking.AsyncSocketer
         {
             get
             {
-                if (Available == 0)
+                try
                 {
-                    try
-                    {
-                        mbrSocketUnAvailable = ClientSocker.Poll(10, SelectMode.SelectRead);
-                    }
-                    catch { mbrSocketUnAvailable = true; }
+                    bool sr = ClientSocker.Poll(10, SelectMode.SelectRead),
+                        se = ClientSocker.Poll(0, SelectMode.SelectError);
+                    return sr && !se;
                 }
-                return Available > 0;
+                catch { mbrSocketUnAvailable = true; }
+                return mbrSocketUnAvailable;
             }
         }
         public virtual bool CanWrite

@@ -47,6 +47,18 @@ namespace TEArts.Networking.AsyncSocketer
             base.fireEvent(evt, e);
         }
         #endregion
+        private static byte[] mbrEmptyBuffer;
+        public static byte[] EmptyBuffer
+        {
+            get
+            {
+                if (mbrEmptyBuffer == null)
+                {
+                    mbrEmptyBuffer = new byte[] { };
+                }
+                return mbrEmptyBuffer;
+            }
+        }
         protected EventSocketer()
         {
             evtConnecting = new object();
@@ -68,37 +80,6 @@ namespace TEArts.Networking.AsyncSocketer
         {
             initComponts(sc, skt);
         }
-
-        private void initComponts(SocketConfigure sc, Socket skt)
-        {
-            Config = sc;
-            if (mbrListenPoint == null && sc.LocalSocketPoint == null)
-            {
-                mbrListenPoint = new IPEndPoint(Config.IPAddress, (sc.SocketType == EventSocketType.Server ? Config.Port : 0));
-                sc.LocalSocketPoint = mbrListenPoint;
-            }
-            else
-            {
-                mbrListenPoint = sc.LocalSocketPoint;
-            }
-            if (sc.RemoteSocketPoint == null)
-            {
-                sc.RemoteSocketPoint = new IPEndPoint(Config.IPAddress, Config.Port);
-            }
-            OutMessage = new MessagePool(128);
-            IncommeMessage = new MessagePool(12800);
-            if (skt == null)
-            {
-                ClientSocket = CreateClientSocket();
-            }
-            else
-            {
-                ClientSocket = CreateClientSocket(skt);
-            }
-            try { ClientSocket.Bind(mbrListenPoint); } catch { }
-            LastAlive = DateTime.Now.AddSeconds(Config.TimeOut);
-        }
-
         public virtual void Start()
         {
             InitLockers();
@@ -345,7 +326,17 @@ namespace TEArts.Networking.AsyncSocketer
             //{
             //    Debuger.Loger.DebugInfo(DebugType.Error, ex.ToString());
             //}
-            OutMessageBack.PushMessage(msg);
+            if (OutMessageBack.Count > 0)
+            {
+                if (CheckConnection)
+                {
+                    OutMessageBack.PushMessage(msg);
+                }
+                else
+                {
+                    Disconnect();
+                }
+            }
             return OutMessage.PushMessage(msg);
         }
         public virtual int PreparSendMessage(string msg) { return PreparSendMessage(Config.Encoding.GetBytes(msg)); }
@@ -498,6 +489,11 @@ namespace TEArts.Networking.AsyncSocketer
                 IncommeMessage.PushMessage(a.Buffer);
                 fireEvent(evtRecevie, a);
             }
+            if (e.SocketError == SocketError.Disconnecting)
+            {
+                Debuger.Loger.DebugInfo(DebugType.Warning, "Connection for {0} is Disconnecting , connection will be lost.", e.RemoteEndPoint);
+                OnDisconnected(e);
+            }
             if (mbrPerformanceEnabled)
             {
                 mbrPReceiveB += T;
@@ -572,6 +568,10 @@ namespace TEArts.Networking.AsyncSocketer
                 mbrPDisC++;
             }
             ClientSocket.Shutdown(SocketShutdown.Send);
+            if (CheckConnection)
+            {
+                Debuger.Loger.Warning("Connect exists");
+            }
             mbrWaitForDisconnect = false;
             SocketEventArgs a = new SocketEventArgs(e);
             fireEvent(evtDisconnected, a);
@@ -603,6 +603,35 @@ namespace TEArts.Networking.AsyncSocketer
         protected virtual void ResetSendAsyncEvents() { GetSendEventsPooler().ForceClose(); }
         protected virtual void ResetDisconnectAsyncEvents() { GetDisconnectEventsPooler().ForceClose(); }
         protected virtual void ResetAcceptAsyncEvents() { GetAcceptEventsPooler().ForceClose(); }
+        private void initComponts(SocketConfigure sc, Socket skt)
+        {
+            Config = sc;
+            if (mbrListenPoint == null && sc.LocalSocketPoint == null)
+            {
+                mbrListenPoint = new IPEndPoint(Config.IPAddress, (sc.SocketType == EventSocketType.Server ? Config.Port : 0));
+                sc.LocalSocketPoint = mbrListenPoint;
+            }
+            else
+            {
+                mbrListenPoint = sc.LocalSocketPoint;
+            }
+            if (sc.RemoteSocketPoint == null)
+            {
+                sc.RemoteSocketPoint = new IPEndPoint(Config.IPAddress, Config.Port);
+            }
+            OutMessage = new MessagePool(128);
+            IncommeMessage = new MessagePool(12800);
+            if (skt == null)
+            {
+                ClientSocket = CreateClientSocket();
+            }
+            else
+            {
+                ClientSocket = CreateClientSocket(skt);
+            }
+            try { ClientSocket.Bind(mbrListenPoint); } catch { }
+            LastAlive = DateTime.Now.AddSeconds(Config.TimeOut);
+        }
         public void PrintBuffer()
         {
             Debuger.Loger.DebugInfo("------++++ IncommeMessage ++++------");
@@ -612,6 +641,28 @@ namespace TEArts.Networking.AsyncSocketer
             Debuger.Loger.DebugInfo("------++++ OutMessageBack ++++------");
             Debuger.Loger.DebugInfo(DebugType.Debug, OutMessageBack.ToString());
             Debuger.Loger.DebugInfo("------++++       End      ++++------");
+        }
+        public bool CheckConnection
+        {
+            get
+            {
+                if (ClientSocket != null && ClientSocket.Connected)
+                {
+                    try
+                    {
+                        ClientSocket.ClientSocker.Send(EmptyBuffer);
+                        return true;
+                    }
+                    catch (SocketException ex)
+                    {
+                        if (ex.SocketErrorCode == SocketError.WouldBlock)
+                        {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
         }
 #if DEBUG
         public bool DebugOutpu { get; set; }
