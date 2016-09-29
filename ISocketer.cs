@@ -52,32 +52,62 @@ namespace TEArts.Networking.AsyncSocketer
         }
         public virtual bool Disconnect(SocketAsyncEventArgs e)
         {
-            try
-            {
-                bool r = ClientSocker.DisconnectAsync(e);
-                //Shutdown(SocketShutdown.Both);
-                //ClientSocker = null;
-                return r;
-            }
-            catch
-            {
-                return false;
-            }
+            return ClientSocker.DisconnectAsync(e);
         }
         public virtual bool Receive(SocketAsyncEventArgs e)
         {
-            return ClientSocker.ReceiveAsync(e);
+            try { return ClientSocker.ReceiveAsync(e); }
+            catch
+            {
+                mbrSocketUnAvailable = false;
+                return false;
+            }
         }
         public virtual bool Send(SocketAsyncEventArgs e)
         {
-            return ClientSocker.SendAsync(e);
+            try { return ClientSocker.SendAsync(e); }
+            catch
+            {
+                mbrSocketUnAvailable = false;
+                return false;
+            }
         }
-        public AddressFamily AddressFamily { get { return ClientSocker.AddressFamily; } }
-        public bool Connected { get { return ClientSocker != null && ClientSocker.Connected; } }
+        public AddressFamily AddressFamily
+        {
+            get
+            {
+                try
+                {
+                    return ClientSocker == null ? AddressFamily.Unknown : ClientSocker.AddressFamily;
+                }
+                catch
+                {
+                    return AddressFamily.Unknown;
+                }
+            }
+        }
+        public bool Connected
+        {
+            get
+            {
+                try
+                {
+                    return ClientSocker == null ? false : ClientSocker.Connected;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
         public void Shutdown(SocketShutdown socketShutdown)
         {
-            try { ClientSocker.Shutdown(socketShutdown); } catch { }
-            ClientSocker.Close(20);
+            try
+            {
+                ClientSocker.Close();
+                ClientSocker.Shutdown(socketShutdown);
+            }
+            catch { }
         }
         public virtual bool CanRead
         {
@@ -87,7 +117,7 @@ namespace TEArts.Networking.AsyncSocketer
                 {
                     bool sr = ClientSocker.Poll(10, SelectMode.SelectRead),
                         se = ClientSocker.Poll(0, SelectMode.SelectError);
-                    return sr && !se;
+                    return sr;
                 }
                 catch { mbrSocketUnAvailable = true; }
                 return mbrSocketUnAvailable;
@@ -105,7 +135,20 @@ namespace TEArts.Networking.AsyncSocketer
                 return true;
             }
         }
-        public virtual int Available { get { try { return ClientSocker == null ? -1 : ClientSocker.Available; } catch { return -2; } } }
+        public virtual int Available
+        {
+            get
+            {
+                try
+                {
+                    return ClientSocker == null ? -1 : ClientSocker.Available;
+                }
+                catch
+                {
+                    return -2;
+                }
+            }
+        }
         public virtual bool Bind(IPEndPoint iPEndPoint)
         {
             try

@@ -328,20 +328,44 @@ namespace TEArts.Networking.AsyncSocketer
             //}
             if (OutMessageBack.Count > 0)
             {
-                if (CheckConnection)
-                {
-                    OutMessageBack.PushMessage(msg);
-                }
-                else
+                if (!CheckConnection)
                 {
                     Disconnect();
+                    return int.MinValue;
                 }
             }
+            OutMessageBack.PushMessage(msg);
             return OutMessage.PushMessage(msg);
         }
         public virtual int PreparSendMessage(string msg) { return PreparSendMessage(Config.Encoding.GetBytes(msg)); }
-        public EndPoint LocalEndPoint { get { return ClientSocket.ClientSocker == null ? null : ClientSocket.ClientSocker.LocalEndPoint; } }
-        public EndPoint RemoteEndPoint { get { return ClientSocket.ClientSocker == null ? null : ClientSocket.ClientSocker.RemoteEndPoint; } }
+        public EndPoint LocalEndPoint
+        {
+            get
+            {
+                try
+                {
+                    return ClientSocket == null ? null : ClientSocket.ClientSocker.LocalEndPoint;
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+        }
+        public EndPoint RemoteEndPoint
+        {
+            get
+            {
+                try
+                {
+                    return ClientSocket == null ? null : ClientSocket.ClientSocker.RemoteEndPoint;
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+        }
         protected MessagePool OutMessage { get; private set; }
         protected MessagePool IncommeMessage { get; private set; }
         //protected EventSocketer TranslateSocket { get; set; }
@@ -482,17 +506,49 @@ namespace TEArts.Networking.AsyncSocketer
         protected virtual void OnReceived(SocketAsyncEventArgs e)
         {
             int T = e.BytesTransferred;
-            DebugInfo(string.Format("[{0}]_OnReceived:_[{1}]_", e.UserToken, T));
+            if (e.SocketError != SocketError.Success)
+            {
+                Debuger.Loger.DebugInfo(DebugType.Warnning, "[{0}] Connection for {1} is {2} _Length:[{3}]_, connection will be lost.", e.UserToken, e.RemoteEndPoint, e.SocketError, e.BytesTransferred);
+                if (
+                    e.SocketError == SocketError.AddressAlreadyInUse ||
+                    e.SocketError == SocketError.AddressFamilyNotSupported ||
+                    e.SocketError == SocketError.AddressNotAvailable ||
+                    e.SocketError == SocketError.ConnectionAborted ||
+                    e.SocketError == SocketError.ConnectionRefused ||
+                    e.SocketError == SocketError.ConnectionReset ||
+                    e.SocketError == SocketError.DestinationAddressRequired ||
+                    e.SocketError == SocketError.HostDown ||
+                    e.SocketError == SocketError.HostNotFound ||
+                    e.SocketError == SocketError.HostUnreachable ||
+                    e.SocketError == SocketError.InvalidArgument ||
+                    e.SocketError == SocketError.NetworkDown ||
+                    e.SocketError == SocketError.NetworkReset ||
+                    e.SocketError == SocketError.NetworkUnreachable ||
+                    e.SocketError == SocketError.NotInitialized ||
+                    e.SocketError == SocketError.NotSocket ||
+                    e.SocketError == SocketError.OperationAborted ||
+                    e.SocketError == SocketError.OperationNotSupported ||
+                    e.SocketError == SocketError.ProcessLimit ||
+                    e.SocketError == SocketError.ProtocolFamilyNotSupported ||
+                    e.SocketError == SocketError.ProtocolNotSupported ||
+                    e.SocketError == SocketError.ProtocolOption ||
+                    e.SocketError == SocketError.ProtocolType ||
+                    e.SocketError == SocketError.SocketError ||
+                    e.SocketError == SocketError.SocketNotSupported ||
+                    e.SocketError == SocketError.SystemNotReady ||
+                    e.SocketError == SocketError.TooManyOpenSockets ||
+                    e.SocketError == SocketError.TypeNotFound ||
+                    e.SocketError == SocketError.VersionNotSupported
+                    )
+                {
+                    Disconnect();
+                }
+            }
             if (T > 0)
             {
                 SocketEventArgs a = new SocketEventArgs(e);
                 IncommeMessage.PushMessage(a.Buffer);
                 fireEvent(evtRecevie, a);
-            }
-            if (e.SocketError == SocketError.Disconnecting)
-            {
-                Debuger.Loger.DebugInfo(DebugType.Warning, "Connection for {0} is Disconnecting , connection will be lost.", e.RemoteEndPoint);
-                OnDisconnected(e);
             }
             if (mbrPerformanceEnabled)
             {
@@ -516,14 +572,21 @@ namespace TEArts.Networking.AsyncSocketer
                     mbrPConF++;
                 }
             }
-            Config.RemoteSocketPoint = e.RemoteEndPoint as IPEndPoint;
-            SocketEventArgs a = new SocketEventArgs(e);
-            fireEvent(evtConnected, a);
-            //mbrWaitForDisconnect = (e.ConnectSocket == null ? (!ClientSocket.CanRead) : e.ConnectSocket.Connected);
-            mbrWaitForDisconnect = e.ConnectSocket != null && e.ConnectSocket.Connected;
-            if (mbrWaitForDisconnect)
+            if (e.SocketError == SocketError.Success)
             {
-                beginSendRec();
+                Config.RemoteSocketPoint = e.RemoteEndPoint as IPEndPoint;
+                SocketEventArgs a = new SocketEventArgs(e);
+                fireEvent(evtConnected, a);
+                //mbrWaitForDisconnect = (e.ConnectSocket == null ? (!ClientSocket.CanRead) : e.ConnectSocket.Connected);
+                mbrWaitForDisconnect = e.ConnectSocket != null && e.ConnectSocket.Connected && e.SocketError == SocketError.Success;
+                if (mbrWaitForDisconnect)
+                {
+                    beginSendRec();
+                }
+            }
+            else
+            {
+                OnError(e);
             }
         }
         protected virtual void OnError(SocketAsyncEventArgs x)
@@ -532,6 +595,7 @@ namespace TEArts.Networking.AsyncSocketer
             {
                 mbrPErrC++;
             }
+            Debuger.Loger.Error("_OnError_Remote:[{0}]_Error:[{1}]_Bites:[{2}]_SocketFlags:[{3}]_", x.RemoteEndPoint, x.SocketError, x.BytesTransferred, x.SocketFlags);
             SocketErrorArgs r = new SocketErrorArgs(x);
             switch (x.LastOperation)
             {
@@ -646,18 +710,21 @@ namespace TEArts.Networking.AsyncSocketer
         {
             get
             {
-                if (ClientSocket != null && ClientSocket.Connected)
+                if (ClientSocket != null && (Config.SocketType == EventSocketType.Accepted || ClientSocket.Connected))
                 {
                     try
                     {
                         ClientSocket.ClientSocker.Send(EmptyBuffer);
                         return true;
                     }
-                    catch (SocketException ex)
+                    catch (Exception ex)
                     {
-                        if (ex.SocketErrorCode == SocketError.WouldBlock)
+                        if (ex is SocketException)
                         {
-                            return true;
+                            if ((ex as SocketException).SocketErrorCode == SocketError.WouldBlock)
+                            {
+                                return true;
+                            }
                         }
                     }
                 }

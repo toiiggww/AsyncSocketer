@@ -116,7 +116,7 @@ namespace TEArts.Networking.AsyncSocketer
         public EndPoint RemoteEndPoint { get; set; }
         public override string ToString()
         {
-            return string.Format("Error:[{0}]{1}On {2} with {3} as : {4}", Message, Environment.NewLine, Operation, SocketError, Exception);
+            return string.Format("Error:[{0}]{1}On {2} with {3}{4}{5}", Message, Environment.NewLine, Operation, SocketError, (Exception == null ? "" : " as : "), Exception);
         }
         public SocketErrorArgs() { }
         public SocketErrorArgs(SocketAsyncEventArgs e)
@@ -124,6 +124,7 @@ namespace TEArts.Networking.AsyncSocketer
             SocketError = e.SocketError;
             Operation = e.LastOperation;
             RemoteEndPoint = e.RemoteEndPoint;
+            Exception = new SocketException((int)(e.SocketError));
         }
     }
     public class PerformanceCountArgs : EventArgs
