@@ -26,51 +26,67 @@ namespace TEArts.Networking.AsyncSocketer
             ClientSocker.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, Config.SocketType == EventSocketType.Server);
         }
         protected SocketConfigure Config { get; private set; }
-        public Socket ClientSocker { get;private set; }
+        public Socket ClientSocker { get; private set; }
+        public bool IsClosed { get; private set; }
         protected bool mbrSocketUnAvailable;
         public void SetTimeOut()
         {
-            if (Config.TimeOut > 0)
-            {
-                ClientSocker.SendTimeout = Config.TimeOut * 1000;
-                ClientSocker.ReceiveTimeout = Config.TimeOut * 1000;
-            }
-            LingerOption lin = new LingerOption(true, 60);
-            //if (Config.Protocol == ProtocolType.Tcp)
+            //if (Config.TimeOut > 0)
             //{
-            ClientSocker.LingerState = lin;
-            //    //ClientSocker.SetSocketOption( SocketOptionLevel.Tcp, SocketOptionName)
+            //    ClientSocker.SendTimeout = Config.TimeOut * 1000;
+            //    ClientSocker.ReceiveTimeout = Config.TimeOut * 1000;
             //}
+            LingerOption lin = new LingerOption(true, 60);
+            ClientSocker.LingerState = lin;
         }
-        public virtual bool Connect(SocketAsyncEventArgs e)
+        public virtual bool? Connect(SocketAsyncEventArgs e)
         {
+            if (IsClosed)
+            {
+                mbrSocketUnAvailable = true;
+                return null;
+            }
             return ClientSocker.ConnectAsync(e);
         }
-        public virtual bool Accept(SocketAsyncEventArgs e)
+        public virtual bool? Accept(SocketAsyncEventArgs e)
         {
+            if (IsClosed)
+            {
+                mbrSocketUnAvailable = true;
+                return null;
+            }
             return ClientSocker.AcceptAsync(e);
         }
-        public virtual bool Disconnect(SocketAsyncEventArgs e)
+        public virtual bool? Disconnect(SocketAsyncEventArgs e)
         {
+            if (IsClosed)
+            {
+                return null;
+            }
+            else
+            {
+                IsClosed = true;
+            }
+            mbrSocketUnAvailable = true;
             return ClientSocker.DisconnectAsync(e);
         }
-        public virtual bool Receive(SocketAsyncEventArgs e)
+        public virtual bool? Receive(SocketAsyncEventArgs e)
         {
-            try { return ClientSocker.ReceiveAsync(e); }
-            catch
+            if (IsClosed)
             {
-                mbrSocketUnAvailable = false;
-                return false;
+                mbrSocketUnAvailable = true;
+                return null;
             }
+            return ClientSocker.ReceiveAsync(e);
         }
-        public virtual bool Send(SocketAsyncEventArgs e)
+        public virtual bool? Send(SocketAsyncEventArgs e)
         {
-            try { return ClientSocker.SendAsync(e); }
-            catch
+            if (IsClosed)
             {
-                mbrSocketUnAvailable = false;
-                return false;
+                mbrSocketUnAvailable = true;
+                return null;
             }
+            return ClientSocker.SendAsync(e);
         }
         public AddressFamily AddressFamily
         {
@@ -104,8 +120,9 @@ namespace TEArts.Networking.AsyncSocketer
         {
             try
             {
-                ClientSocker.Close();
+                IsClosed = true;
                 ClientSocker.Shutdown(socketShutdown);
+                ClientSocker.Close();
             }
             catch { }
         }
@@ -141,7 +158,7 @@ namespace TEArts.Networking.AsyncSocketer
             {
                 try
                 {
-                    return ClientSocker == null ? -1 : ClientSocker.Available;
+                    return ClientSocker == null || IsClosed ? -1 : ClientSocker.Available;
                 }
                 catch
                 {
@@ -219,24 +236,39 @@ namespace TEArts.Networking.AsyncSocketer
                 return mbrSocketUnAvailable;
             }
         }
-        public override bool Connect(SocketAsyncEventArgs e)
+        public override bool? Connect(SocketAsyncEventArgs e)
         {
             return Send(e);
         }
-        public override bool Disconnect(SocketAsyncEventArgs e)
+        public override bool? Disconnect(SocketAsyncEventArgs e)
         {
             return Send(e);
         }
-        public override bool Send(SocketAsyncEventArgs e)
+        public override bool? Send(SocketAsyncEventArgs e)
         {
+            if (IsClosed)
+            {
+                mbrSocketUnAvailable = true;
+                return null;
+            }
             return ClientSocker.SendToAsync(e);
         }
-        public override bool Receive(SocketAsyncEventArgs e)
+        public override bool? Receive(SocketAsyncEventArgs e)
         {
+            if (IsClosed)
+            {
+                mbrSocketUnAvailable = true;
+                return null;
+            }
             return ClientSocker.ReceiveFromAsync(e);
         }
-        public override bool Accept(SocketAsyncEventArgs e)
+        public override bool? Accept(SocketAsyncEventArgs e)
         {
+            if (IsClosed)
+            {
+                mbrSocketUnAvailable = true;
+                return null;
+            }
             return ClientSocker.ReceiveFromAsync(e);
         }
         public override void Listen(int blocking)

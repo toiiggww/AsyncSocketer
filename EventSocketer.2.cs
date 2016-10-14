@@ -153,7 +153,7 @@ namespace TEArts.Networking.AsyncSocketer
                     }
                 }
             }
-            if (!ClientSocket.Connect(e))
+            if (!ClientSocket.IsClosed && !ClientSocket.Connect(e).Value)
             {
                 OnConnected(e);
             }
@@ -176,7 +176,7 @@ namespace TEArts.Networking.AsyncSocketer
             if (mbrWaitForDisconnect)
             {
                 SocketAsyncEventArgs e = GetDisconnectEventsPooler().Pop(Config);
-                if (!ClientSocket.Disconnect(e))
+                if (!ClientSocket.IsClosed && !ClientSocket.Disconnect(e).Value)
                 {
                     OnDisconnected(e);
                 }
@@ -198,7 +198,7 @@ namespace TEArts.Networking.AsyncSocketer
                 i++;
                 Console.Write(" " + (i / Config.AsyncSendReceiveEventInstance).ToString() + "_" + (i % Config.AsyncSendReceiveEventInstance).ToString());
                 SocketAsyncEventArgs e = GetAcceptEventsPooler().Pop(Config);
-                if (!ClientSocket.Accept(e))
+                if (!ClientSocket.IsClosed && !ClientSocket.Accept(e).Value)
                 {
                     OnAccepted(e);
                 }
@@ -227,7 +227,7 @@ namespace TEArts.Networking.AsyncSocketer
                     {
                         break;
                     }
-                    if (!ClientSocket.Receive(e))
+                    if (!ClientSocket.IsClosed && !ClientSocket.Receive(e).Value)
                     {
                         OnReceived(e);
                     }
@@ -243,6 +243,10 @@ namespace TEArts.Networking.AsyncSocketer
             while (mbrWaitForDisconnect)
             {
                 MessageFragment m = OutMessage.GetMessage();
+                if (!mbrWaitForDisconnect)
+                {
+                    break;
+                }
                 if (!NotTimeout)
                 {
                     try { ClientSocket.Disconnect(GetDisconnectEventsPooler().Pop(Config)); }
@@ -256,10 +260,6 @@ namespace TEArts.Networking.AsyncSocketer
                     while (!lSended)
                     {
                         SocketAsyncEventArgs e = GetSendEventsPooler().Pop(Config);
-                        if (!mbrWaitForDisconnect)
-                        {
-                            break;
-                        }
                         lSended = m.Buffer.Length < e.Count;
                         int lSendByte = m.Buffer.Length >= e.Count ? e.Count : m.Buffer.Length;
                         (e.UserToken as EventToken).MessageID = m.IDentity;
@@ -268,7 +268,7 @@ namespace TEArts.Networking.AsyncSocketer
                         lOffset += lSendByte;
                         try
                         {
-                            if (!ClientSocket.Send(e))
+                            if (!ClientSocket.IsClosed && !ClientSocket.Send(e).Value)
                             {
                                 OnSended(e);
                             }
@@ -330,7 +330,7 @@ namespace TEArts.Networking.AsyncSocketer
             {
                 if (!CheckConnection)
                 {
-                    Disconnect();
+                    ClientSocket.Shutdown(SocketShutdown.Both);
                     return int.MinValue;
                 }
             }
@@ -508,7 +508,7 @@ namespace TEArts.Networking.AsyncSocketer
             int T = e.BytesTransferred;
             if (e.SocketError != SocketError.Success)
             {
-                Debuger.Loger.DebugInfo(DebugType.Warnning, "[{0}] Connection for {1} is {2} _Length:[{3}]_, connection will be lost.", e.UserToken, e.RemoteEndPoint, e.SocketError, e.BytesTransferred);
+                Debuger.Loger.DebugInfo(DebugType.Warning, "[{0}] Connection for {1} is {2} _Length:[{3}]_, connection will be lost.", e.UserToken, e.RemoteEndPoint, e.SocketError, e.BytesTransferred);
                 if (
                     e.SocketError == SocketError.AddressAlreadyInUse ||
                     e.SocketError == SocketError.AddressFamilyNotSupported ||
@@ -541,7 +541,7 @@ namespace TEArts.Networking.AsyncSocketer
                     e.SocketError == SocketError.VersionNotSupported
                     )
                 {
-                    Disconnect();
+                    OnDisconnected(e);
                 }
             }
             if (T > 0)
@@ -710,7 +710,7 @@ namespace TEArts.Networking.AsyncSocketer
         {
             get
             {
-                if (ClientSocket != null && (Config.SocketType == EventSocketType.Accepted || ClientSocket.Connected))
+                if (ClientSocket != null && !ClientSocket.IsClosed && (Config.SocketType == EventSocketType.Accepted || ClientSocket.Connected))
                 {
                     try
                     {
@@ -725,6 +725,10 @@ namespace TEArts.Networking.AsyncSocketer
                             {
                                 return true;
                             }
+                        }
+                        else
+                        {
+                            Debuger.Loger.Error("{0}", ex);
                         }
                     }
                 }

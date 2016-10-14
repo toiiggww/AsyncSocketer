@@ -34,7 +34,8 @@ namespace TEArts.Networking.AsyncSocketer
             m.IDentity = mbrPooler.NextIndex;
             m.Buffer = new byte[msg.Length];
             Buffer.BlockCopy(msg, 0, m.Buffer, 0, msg.Length);
-            return mbrPooler.Pushin(m);
+            mbrPooler.Pushin(m);
+            return m.IDentity;
         }
         public MessageFragment GetMessage()
         {

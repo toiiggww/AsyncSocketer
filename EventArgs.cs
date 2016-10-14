@@ -21,11 +21,8 @@ namespace TEArts.Networking.AsyncSocketer
             {
                 SessionID = t.SessionID;
                 MessageIndex = t.MessageID;
-                if (e.BytesTransferred > 0)
-                {
-                    Buffer = new byte[e.BytesTransferred];
-                    System.Buffer.BlockCopy(e.Buffer, e.Offset, Buffer, 0, e.BytesTransferred);
-                }
+                Buffer = new byte[e.BytesTransferred];
+                System.Buffer.BlockCopy(e.Buffer, e.Offset, Buffer, 0, e.BytesTransferred);
                 Remoter = e.RemoteEndPoint;
             }
         }
