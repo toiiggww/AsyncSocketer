@@ -45,6 +45,7 @@ namespace TEArts.Networking.AsyncSocketer
                 }
             }
             base.fireEvent(evt, e);
+            activate();
         }
         #endregion
         private static byte[] mbrEmptyBuffer;
@@ -694,8 +695,14 @@ namespace TEArts.Networking.AsyncSocketer
                 ClientSocket = CreateClientSocket(skt);
             }
             try { ClientSocket.Bind(mbrListenPoint); } catch { }
+            activate();
+        }
+
+        private void activate()
+        {
             LastAlive = DateTime.Now.AddSeconds(Config.TimeOut);
         }
+
         public void PrintBuffer()
         {
             Debuger.Loger.DebugInfo("------++++ IncommeMessage ++++------");

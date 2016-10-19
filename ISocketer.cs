@@ -36,16 +36,16 @@ namespace TEArts.Networking.AsyncSocketer
             //    ClientSocker.SendTimeout = Config.TimeOut * 1000;
             //    ClientSocker.ReceiveTimeout = Config.TimeOut * 1000;
             //}
-            LingerOption lin = new LingerOption(true, 60);
-            ClientSocker.LingerState = lin;
+            //LingerOption lin = new LingerOption(true, 60);
+            //ClientSocker.LingerState = lin;
         }
         public virtual bool? Connect(SocketAsyncEventArgs e)
         {
-            if (IsClosed)
-            {
-                mbrSocketUnAvailable = true;
-                return null;
-            }
+            //if (IsClosed)
+            //{
+            //    mbrSocketUnAvailable = true;
+            //    return null;
+            //}
             return ClientSocker.ConnectAsync(e);
         }
         public virtual bool? Accept(SocketAsyncEventArgs e)
@@ -132,7 +132,7 @@ namespace TEArts.Networking.AsyncSocketer
             {
                 try
                 {
-                    bool sr = ClientSocker.Poll(10, SelectMode.SelectRead),
+                    bool sr = ClientSocker.Poll(0, SelectMode.SelectRead),
                         se = ClientSocker.Poll(0, SelectMode.SelectError);
                     return sr;
                 }
@@ -146,7 +146,7 @@ namespace TEArts.Networking.AsyncSocketer
             {
                 try
                 {
-                    mbrSocketUnAvailable = ClientSocker.Poll(10, SelectMode.SelectWrite);
+                    mbrSocketUnAvailable = ClientSocker.Poll(0, SelectMode.SelectWrite);
                 }
                 catch { mbrSocketUnAvailable = true; }
                 return true;
